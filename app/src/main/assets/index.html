@@ -129,7 +129,7 @@ header{padding:22px 0 17px;display:flex;align-items:center;justify-content:space
 <div class="bottom-nav"><div class="nav-content" id="navbar"></div></div>
 <script>
 "use strict";
-var state={stocks:[],universe:0,updated:"",refreshing:false,message:"",error:"",tab:"Explore",filter:"All",query:"",detail:null,watch:[],dataReceived:false,windowDays:7,curatedBrokers:[],curatedPublishers:[],curatedAnalysts:[],indexedLeads:[],deepStock:"",deepReport:"",deepQuery:"",indexedFilter:""};
+var state={stocks:[],universe:0,candidateSites:0,targetedSites:0,updated:"",refreshing:false,message:"",error:"",tab:"Explore",filter:"All",query:"",detail:null,watch:[],dataReceived:false,windowDays:7,curatedBrokers:[],curatedPublishers:[],curatedAnalysts:[],indexedLeads:[],deepStock:"",deepReport:"",deepQuery:"",indexedFilter:""};
 try{state.watch=JSON.parse(localStorage.getItem("watchlist")||"[]");}catch(e){state.watch=[];}
 function esc(v){return String(v===null||v===undefined?"":v).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]});}
 function dateText(s){if(!s)return "Date not supplied";var d=new Date(s);if(isNaN(d.getTime()))return s.slice(0,10);return d.toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"});}
@@ -157,7 +157,7 @@ function openSource(encoded){try{var url=decodeURIComponent(encoded);if(url.star
 function saveWatch(symbol){var i=state.watch.indexOf(symbol);if(i<0)state.watch.push(symbol);else state.watch.splice(i,1);try{localStorage.setItem("watchlist",JSON.stringify(state.watch));}catch(e){}draw();}
 function receiveNative(message){try{
 var msg=JSON.parse(message);
-if(msg.kind==="snapshot"){var d=msg.payload||{};state.stocks=d.stocks||[];state.updated=msg.lastRefresh||"";state.windowDays=d.windowDays||state.windowDays;state.universe=d.universe||0;state.curatedBrokers=d.curatedBrokers||[];state.curatedPublishers=d.curatedPublishers||[];state.curatedAnalysts=d.curatedAnalysts||[];state.indexedLeads=d.indexedLeads||[];state.deepStock=msg.deepStock||state.deepStock;state.deepReport=msg.deepReport||state.deepReport;state.dataReceived=true;}
+if(msg.kind==="snapshot"){var d=msg.payload||{};state.stocks=d.stocks||[];state.updated=msg.lastRefresh||"";state.windowDays=d.windowDays||state.windowDays;state.universe=d.universe||0;state.candidateSites=d.candidateSites||0;state.targetedSites=d.targetedSites||0;state.curatedBrokers=d.curatedBrokers||[];state.curatedPublishers=d.curatedPublishers||[];state.curatedAnalysts=d.curatedAnalysts||[];state.indexedLeads=d.indexedLeads||[];state.deepStock=msg.deepStock||state.deepStock;state.deepReport=msg.deepReport||state.deepReport;state.dataReceived=true;}
 state.refreshing=!!msg.refreshing;state.message=msg.message||"";state.error=msg.error||"";
 if(state.detail&&!state.stocks.some(function(x){return x.symbol===state.detail;}))state.detail=null;
 draw();
@@ -297,6 +297,9 @@ return '<div class="title-row"><div><div class="section-title">Source coverage</
 }
 function aboutPage(){
 return '<div class="title-row"><div><div class="section-title">How this works</div><div class="section-caption">Transparent, offline-first stock research</div></div></div>'+
+'<div class="detail-section"><h3>Source reach and verification</h3>'+
+'<div class="two-col"><div class="statbox"><div class="num">'+state.candidateSites+'</div><div class="lbl">Candidate directory domains (NOT verified as reachable)</div></div><div class="statbox"><div class="num">'+state.targetedSites+'</div><div class="lbl">Research/news/brokerage sites targeted by Deep Search index queries</div></div></div>'+
+'<p class="small-note">Deep Search reports how many distinct stock-matched URL hosts and named publishers actually returned results. Directory entries are not equivalent to retrieved recommendations. Search providers may suppress, ignore or rate-limit requests. No bulk scraping or paid access.</p></div>'+
 '<div class="detail-section"><h3>What Refresh does</h3><p class="small-note">Searches 23 public financial-news queries, separately checks free indexed Reddit/X/analyst links, then investigates up to 8 of the most mentioned directional stock candidates. It scans an initial universe of '+state.universe+' recognizable Indian equities. Select Today, 2, 3, 7, 14 or 30 days to filter by original article publication date. A separate saved timestamp records the latest successful data refresh.</p></div>'+
 '<div class="detail-section"><h3>Evidence scoring / 100</h3><p class="small-note">Directional agreement (up to 20), independent research origins (up to 20), curated-source quality (up to 25), freshness (up to 10), and explicit stock-linked headline direction (up to 10). Maximum <b>85/100</b> pending audited real performance. Choose a publication window (1, 2, 3, 7, 14 or 30 days) to completely recalculate results using only recent evidence.</p>'+
 '<p class="small-note">Same-origin sources and identical syndicated headlines do not increase the score. Conflicting and neutral coverage remains visible. Linked trade prices are extracted only when explicit and stock-attributable in the headline. Missing values remain blank. A headline is not an executed trade. “BUY” and “SELL” reflect explicit words in published headlines, not the app issuing trade advice.</p></div>'+
