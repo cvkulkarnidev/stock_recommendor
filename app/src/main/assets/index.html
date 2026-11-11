@@ -204,7 +204,7 @@ var agree=x.buy+x.sell, pct=Math.max(0,Math.min(100,x.confidence));
 return '<article class="stock-card" onclick="openStock(\''+esc(x.symbol)+'\')"><div class="card-top">'+
 '<div style="display:flex;align-items:center;gap:11px;min-width:0"><div class="ticker-logo">'+esc(x.symbol.substring(0,2))+'</div><div style="min-width:0"><div class="ticker-title">'+esc(x.symbol)+'</div><div class="company">'+esc(x.name)+'</div></div></div>'+badge(x.direction)+'</div>'+
 '<div class="evidence-grid"><div><div class="conf-label">Evidence confidence</div><div class="conf-value"><strong>'+x.confidence+'</strong><span>/100</span></div><div class="bar"><div style="width:'+pct+'%"></div></div></div>'+
-'<div><div class="conf-label">Grouped source signals</div><div class="source-count">'+agree+'</div><div class="signal-meter"><span class="green"><i class="dot" style="background:var(--green)"></i>'+x.buy+' Buy</span><span class="red"><i class="dot" style="background:var(--red)"></i>'+x.sell+' Sell</span></div></div></div>'+
+'<div><div class="conf-label">Distinct directional opinions</div><div class="source-count">'+agree+'</div><div class="signal-meter"><span class="green"><i class="dot" style="background:var(--green)"></i>'+x.buy+' Buy</span><span class="red"><i class="dot" style="background:var(--red)"></i>'+x.sell+' Sell</span></div></div></div>'+
 (x.sampleLevels && (x.sampleLevels.entry||x.sampleLevels.target||x.sampleLevels.stop)?'<div class="two-col" style="grid-template-columns:repeat(3,1fr);margin-top:14px"><div class="statbox"><div class="lbl">Entry</div><div style="font-size:12px;font-weight:700">'+rupee(x.sampleLevels.entry)+'</div></div><div class="statbox"><div class="lbl">Target</div><div style="font-size:12px;font-weight:700">'+rupee(x.sampleLevels.target)+'</div></div><div class="statbox"><div class="lbl">Stop-loss</div><div style="font-size:12px;font-weight:700">'+rupee(x.sampleLevels.stop)+'</div></div></div>':'')+
 '<div class="card-foot"><span>'+x.curatedSources+' curated · '+x.otherSources+' other<br>Latest: '+esc(dateText(x.lastPublished))+'</span><span class="foot-more">View evidence ›</span></div></article>';
 }
@@ -249,7 +249,17 @@ return '<div class="detail-head"><button class="back" onclick="appBack()">‹ Ba
 '<p class="small-note">'+esc(x.explanation)+'</p>'+
 '<button class="primary" style="width:100%;margin-top:8px" '+(state.refreshing?'disabled':'')+' onclick="investigate(\''+esc(x.symbol)+'\')">⌕ &nbsp; Deep Search all portals for this stock</button>'+
 '</div>'+statusHtml()+
-'<div class="notice">Confidence is <b>source-weighted, stock-linked headline evidence</b>, not a likelihood of profit. Curated means a known source name, not an audited successful analyst. BUY/SELL terms must appear close to the named stock; ambiguous discussions remain WATCH. Review the original report before acting.</div>'+
+'<div class="notice">Confidence is <b>source-weighted named brokerage/analyst signals when attributable from a headline or public RSS excerpt</b>, not a likelihood of profit. Curated means a known source name, not an audited successful analyst. BUY/SELL terms must appear close to the named stock; ambiguous discussions remain WATCH. Review the original report before acting.</div>'+
+'<div class="detail-section"><div class="split"><h3>Independent brokerage / analyst calls</h3><span class="tag">'+(x.institutionCalls||[]).length+' calls</span></div>'+
+'<p class="small-note">Each named institution contributes at most one current opinion in the selected date window. Multiple news portals repeating one call do not create more votes. Underlying signed reports are not automatically verified.</p>'+
+((x.institutionCalls||[]).length?(x.institutionCalls||[]).map(function(c){
+return '<div class="story"><div class="story-actions"><strong>'+esc(c.name)+'</strong><span class="pill-small '+c.direction.toLowerCase()+'">'+esc(c.direction)+'</span></div>'+
+'<div class="two-col" style="grid-template-columns:repeat(3,1fr);margin:10px 0"><div class="statbox"><div class="lbl">Entry</div><div style="font-size:13px;font-weight:750">'+rupee(c.entryPrice)+'</div></div>'+
+'<div class="statbox"><div class="lbl">Target</div><div style="font-size:13px;font-weight:750;color:var(--green)">'+rupee(c.targetPrice)+'</div></div>'+
+'<div class="statbox"><div class="lbl">Stop-loss</div><div style="font-size:13px;font-weight:750;color:var(--red)">'+rupee(c.stopLoss)+'</div></div></div>'+
+'<div class="small-note">Source: '+esc(c.sourcePublisher)+' · Published '+esc(dateText(c.published))+' · levels only if explicitly stated</div>'+
+'<button class="textlink" onclick="openSource(\\''+encodeURIComponent(c.articleUrl)+'\\')">Read attributable coverage ↗</button></div>';
+}).join(""):'<p class="small-note">No sufficiently attributable brokerage calls found. Use Deep Search for more coverage.</p>')+'</div>'+
 '<div class="detail-section"><div class="split"><h3>Source evidence</h3><span class="tag">'+x.coverage+' articles</span></div>'+
 x.evidence.map(function(n){
 return '<div class="story"><div class="story-actions"><span class="pill-small '+n.stance.toLowerCase()+'">'+esc(n.stance)+'</span><span class="small-note">'+(n.counted?"Counted in score":"Context / duplicate / non-directional")+'</span></div>'+
