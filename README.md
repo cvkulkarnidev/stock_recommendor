@@ -86,3 +86,32 @@ CI executes extensive JUnit regression examples for:
 - JavaScript syntax and Android APK build checks (build is not equivalent to live-data verification)
 
 **Limitations:** This release is a local discovery tool, not exhaustive or audited investment advice. Manual refresh requires internet. Free RSS feeds can change, rate limit, or remove access. No automatic trading, no paid providers, and no cloud backend.
+
+
+## v0.6 — Broad source-directory search and audited coverage
+
+The app now includes **125 distinct candidate domains** spanning brokerages,
+institutional research, financial publications, research communities, and official
+market context. More than 100 brokerage/news/research domain targets participate
+in each per-stock Deep Search through **grouped search-engine index queries**.
+
+These are *candidate targets*, **not 125 verified working scrapers** or 125
+independent BUY/SELL opinions. Bing/Google can limit, ignore, or decline some
+queries, and individual candidate domains may change ownership or cease publishing.
+A manual search is allowed to return no matches. Unavailable sources are not
+fabricated.
+
+Each search reports:
+- number of candidate domains targeted for index discovery;
+- number of **distinct result URL hosts matched to the stock** and identifiable
+  publishers that actually returned results;
+- attempted/successful feed searches, failures, skipped calls and saved results.
+
+To reduce rate-limit risk, candidate domains are grouped three to a search and
+the app stops sending additional Bing requests after four consecutive failures.
+Actual success is counted from retrieved stock-matched evidence, not directory
+size, duplicated headlines or mentions on social networks.
+
+This is a **scalable candidate-source discovery layer**, not unrestricted
+scraping of each of those websites. Extracting verified full-text brokerage
+recommendations still requires provider-specific permitted feeds or agreements.
