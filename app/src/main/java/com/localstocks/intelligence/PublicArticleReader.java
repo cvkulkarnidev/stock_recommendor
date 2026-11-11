@@ -43,6 +43,12 @@ public final class PublicArticleReader {
         for(String host:HOSTS)if(n.equals(host)||n.equals("www."+host))return true;
         return false;
     }
+    public static boolean supportsUrl(String link){
+        try{
+            URL u=new URL(link);
+            return u.getProtocol().equalsIgnoreCase("https")&&hostAllowed(u.getHost());
+        }catch(Exception e){return false;}
+    }
     private static String read(String url,int max)throws Exception{
         HttpURLConnection c=null;
         try{
