@@ -86,6 +86,12 @@ public final class BrokerageCallExtractor {
         if(n.contains("kotak"))return "Kotak Securities";
         return name;
     }
+    private static boolean mentionsCanonical(String text,String canonicalName){
+        for(String raw:INSTITUTIONS){
+            if(canonical(raw).equalsIgnoreCase(canonicalName)&&hasPhrase(text,raw))return true;
+        }
+        return false;
+    }
     private static String decide(String text){
         if(CONTRARY.matcher(text).find()||text.contains("?"))return "WATCH";
         String n=norm(text);
@@ -199,7 +205,7 @@ public final class BrokerageCallExtractor {
         if(result.size()==1 && titleAboutStock && !multiHeadline){
             String key=result.keySet().iterator().next();
             Call original=result.get(key);
-            if(!original.conflictingTarget && hasPhrase(head,original.institution)){
+            if(!original.conflictingTarget && mentionsCanonical(head,original.institution)){
                 Double t=find(EXPLICIT_TARGET,head);
                 if(t!=null&&original.target!=null&&Math.abs(t-original.target)>0.01){
                     result.put(key,new Call(original.institution,original.direction,
