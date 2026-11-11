@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#090f1c">
+<title>Stock Intelligence</title>
+<style>
+:root{--bg:#090f1c;--surface:#111d31;--surface2:#17263c;--border:#26354a;--ink:#edf4ff;--muted:#8e9db2;--green:#41d5ae;--red:#ff7d8b;--blue:#67aef9;--gold:#f8c36b;--radius:18px}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Roboto",sans-serif;-webkit-font-smoothing:antialiased}
+button,input{font:inherit}
+button{cursor:pointer;-webkit-tap-highlight-color:transparent}
+button:disabled{opacity:.55;cursor:default}
+body{min-height:100vh;background:radial-gradient(ellipse at 16% -9%,#19365a 0,transparent 38%),var(--bg)}
+.app{max-width:710px;margin:auto;min-height:100vh;padding:0 18px 108px}
+header{padding:22px 0 17px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.brand{display:flex;align-items:center;gap:11px}
+.brand-icon{width:41px;height:41px;border-radius:13px;background:linear-gradient(145deg,#41d5ae,#3688e8);display:grid;place-items:center;box-shadow:0 8px 26px #37b0c526}
+.brand-icon svg{width:25px;fill:none;stroke:#071c29;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.brand-name{font-size:17px;font-weight:800;letter-spacing:-.5px}
+.brand-sub{color:var(--muted);font-size:10.5px;margin-top:3px;letter-spacing:.2px}
+.icon-btn{width:42px;height:42px;display:grid;place-items:center;border:1px solid var(--border);border-radius:13px;color:#dae8f9;background:#17263c}
+.icon-btn svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.hero{position:relative;border:1px solid #2a485b;border-radius:24px;padding:22px;background:linear-gradient(120deg,#133d48 0%,#153954 45%,#192d52 100%);overflow:hidden;box-shadow:0 14px 45px #01061130}
+.hero:after{content:"";position:absolute;width:200px;height:200px;right:-85px;top:-100px;border:1px solid #8be8dc28;border-radius:50%;box-shadow:0 0 0 32px #9be6f910,0 0 0 64px #9be6f907;pointer-events:none}
+.eyebrow{font-size:10px;letter-spacing:2px;font-weight:800;color:#9de8dc;text-transform:uppercase}
+.hero h1{margin:9px 0 7px;font-size:28px;line-height:1.13;letter-spacing:-1.1px;max-width:340px}
+.hero p{font-size:12px;line-height:1.6;color:#b7d1df;max-width:330px;margin:0}
+.hero-bottom{margin-top:22px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.primary{border:0;border-radius:12px;padding:12px 17px;background:#4be0b7;color:#062723;font-weight:800;font-size:12px;box-shadow:0 7px 25px #20d6ad25}
+.primary:active{transform:scale(.99)}
+.outline{border:1px solid #55778d;color:#e2eff9;border-radius:12px;padding:11px 15px;background:#ffffff0b;font-size:12px;font-weight:650}
+.last-updated{font-size:10px;color:#a9cbda}
+.status{margin-top:12px;border:1px solid #30566b;background:#163344;border-radius:12px;padding:11px 13px;display:none;font-size:11px;color:#c6e9f1;line-height:1.4}
+.status.visible{display:flex;align-items:center;gap:9px}
+.status.error{border-color:#753a49;background:#392331;color:#ffb0b7}
+.loader{width:14px;height:14px;border:2px solid #ffffff40;border-top-color:#69f0d3;border-radius:50%;animation:spin .8s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+.metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:18px 0 23px}
+.metric{padding:15px 13px;background:linear-gradient(145deg,#15253a,#111d30);border:1px solid var(--border);border-radius:16px}
+.metric-icon{font-size:17px;color:var(--blue);margin-bottom:10px}
+.metric strong{display:block;font-size:24px;line-height:1;font-weight:800;letter-spacing:-1px}
+.metric span{display:block;color:var(--muted);font-size:10px;margin-top:9px;line-height:1.3}
+.title-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:16px 0 12px}
+.section-title{font-size:18px;font-weight:800;letter-spacing:-.45px}
+.section-caption{font-size:11px;color:var(--muted);margin-top:5px}
+.count{color:var(--muted);font-size:11px;white-space:nowrap}
+.search-wrap{position:relative;margin:14px 0 10px}
+.search-wrap svg{position:absolute;left:14px;top:14px;width:18px;height:18px;fill:none;stroke:#8da2b6;stroke-width:2;stroke-linecap:round}
+.search-wrap input{width:100%;height:46px;padding:0 15px 0 42px;border:1px solid #2b3c52;background:#131f32;border-radius:13px;color:var(--ink);outline:none;font-size:13px}
+.search-wrap input:focus{border-color:#5ca9d1;box-shadow:0 0 0 3px #68bffc14}
+.chips{display:flex;gap:8px;overflow:auto;padding:3px 0 13px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{white-space:nowrap;background:#172439;color:#a9b9cc;border:1px solid #2a3a50;padding:9px 14px;border-radius:20px;font-size:11px;font-weight:750}
+.chip.active{background:#265443;color:#96f9d2;border-color:#3a8f78}
+.stock-card{border:1px solid var(--border);border-radius:18px;background:linear-gradient(120deg,#172539,#111d30);margin:0 0 12px;padding:17px;transition:border-color .15s}
+.stock-card:active{border-color:#4b829f}
+.card-top{display:flex;align-items:start;justify-content:space-between;gap:8px}
+.ticker-logo{width:40px;height:40px;border-radius:12px;background:#263e54;display:grid;place-items:center;font-size:14px;font-weight:900;color:#a7daf5;flex-shrink:0}
+.ticker-title{font-size:17px;font-weight:800;letter-spacing:-.4px}
+.company{color:var(--muted);font-size:11px;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:190px}
+.badge{font-size:10px;letter-spacing:.4px;font-weight:900;padding:8px 11px;border-radius:9px}
+.badge.buy{background:#174c41;color:#55e1b1}
+.badge.sell{background:#4c2938;color:#ff929d}
+.badge.mixed{background:#4b4129;color:#efd18b}
+.badge.watch{background:#273d58;color:#a6c4e9}
+.evidence-grid{display:grid;grid-template-columns:1.05fr 1fr;gap:16px;margin-top:20px}
+.conf-label{color:var(--muted);font-size:10px}
+.conf-value{display:flex;align-items:baseline;gap:3px;margin-top:5px}
+.conf-value strong{font-size:29px;font-weight:800;letter-spacing:-1px}
+.conf-value span{color:var(--muted);font-size:12px}
+.bar{height:6px;background:#304057;border-radius:12px;overflow:hidden;margin-top:9px}
+.bar div{height:100%;border-radius:12px;background:linear-gradient(90deg,#359cc7,#45d7b0)}
+.source-count{font-size:24px;font-weight:800;margin-top:6px;letter-spacing:-1px}
+.signal-meter{display:flex;align-items:center;gap:6px;margin-top:11px}
+.signal-meter span{display:inline-flex;gap:4px;align-items:center;font-size:10px;font-weight:700}
+.dot{width:7px;height:7px;border-radius:50%}
+.green{color:var(--green)}.red{color:var(--red)}.blue{color:var(--blue)}.muted{color:var(--muted)}
+.card-foot{display:flex;justify-content:space-between;gap:8px;padding-top:13px;margin-top:16px;border-top:1px solid #2b3a4d;align-items:center;font-size:11px;color:#91a7bd}
+.foot-more{font-weight:700;color:#8edaf4}
+.empty{padding:30px 16px;text-align:center;border:1px dashed #365069;border-radius:17px;background:#142034}
+.empty-icon{font-size:34px;margin-bottom:9px}
+.empty h3{font-size:18px;margin:8px 0}
+.empty p{font-size:12px;color:var(--muted);line-height:1.65}
+.empty button{margin-top:12px}
+.bottom-nav{position:fixed;z-index:30;bottom:0;left:0;right:0;background:#0d1727ec;border-top:1px solid #27384d;backdrop-filter:blur(16px);padding:9px 13px max(13px,env(safe-area-inset-bottom));display:flex;justify-content:center}
+.nav-content{display:grid;grid-template-columns:repeat(4,1fr);max-width:710px;width:100%}
+.nav-item{border:0;background:none;color:#758ba3;padding:8px 4px;display:flex;flex-direction:column;align-items:center;gap:5px;font-size:10px;font-weight:700}
+.nav-item .symbol{font-size:20px}
+.nav-item.selected{color:#62dabd}
+.detail-head{display:flex;align-items:center;gap:10px;margin:10px 0 17px}
+.back{border:1px solid var(--border);border-radius:10px;background:var(--surface);color:#dde8f8;padding:10px 13px}
+.detail-title{font-size:23px;font-weight:850}
+.detail-sub{font-size:12px;color:var(--muted);margin-top:5px}
+.detail-section{border:1px solid var(--border);border-radius:18px;padding:18px;margin-bottom:13px;background:#132036}
+.detail-section h3{margin:0 0 12px;font-size:15px}
+.split{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:14px 0 0}
+.statbox{background:#1c2d44;border-radius:12px;padding:13px}
+.statbox .num{font-size:22px;font-weight:850}
+.statbox .lbl{font-size:10px;color:var(--muted);margin-top:5px}
+.story{padding:15px 0;border-bottom:1px solid #2b3b50}
+.story:last-child{border-bottom:none}
+.story-title{font-size:13px;font-weight:650;line-height:1.5}
+.story-meta{font-size:10px;color:var(--muted);margin:8px 0}
+.story-actions{display:flex;align-items:center;justify-content:space-between}
+.textlink{border:0;background:none;padding:5px 0;color:#8ad9f4;font-size:11px;font-weight:750}
+.pill-small{font-size:10px;border-radius:7px;padding:5px 8px;background:#283953;color:#a9c8e6}
+.pill-small.buy{background:#1e4c42;color:#77e5bc}.pill-small.sell{background:#502d39;color:#f89b9f}
+.pill-small.mixed{background:#55462d;color:#f4d68d}
+.notice{font-size:11px;line-height:1.7;color:#a4b6c9;padding:13px 15px;border-radius:12px;background:#1b2b40;border:1px solid #2c4058;margin-bottom:14px}
+.publisher-row{padding:13px 0;border-bottom:1px solid #2e4053;display:flex;justify-content:space-between;gap:10px;font-size:13px}
+.publisher-row:last-child{border:none}
+.tag{font-size:10px;padding:5px 8px;border-radius:7px;background:#233b53;color:#a6daf1}
+.skeleton{height:60px;animation:pulse 1.5s infinite alternate;background:#1c2d40;border-radius:15px;margin:12px 0}
+@keyframes pulse{to{opacity:.45}}
+.small-note{color:var(--muted);font-size:11px;line-height:1.65}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+<header>
+<div class="brand"><div class="brand-icon"><svg viewBox="0 0 24 24"><path d="m3 17 6-6 4 4 8-9"/><path d="M15 6h6v6"/></svg></div><div><div class="brand-name">Stock Intelligence</div><div class="brand-sub">INDIA · SWING TRADING RESEARCH</div></div></div>
+<button class="icon-btn" onclick="refresh()" aria-label="Refresh market"><svg viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M5.5 9a7.5 7.5 0 0 1 13-2L20 12M4 12l1.5 5a7.5 7.5 0 0 0 13-2"/></svg></button>
+</header>
+<main id="content"></main>
+</div>
+<div class="bottom-nav"><div class="nav-content" id="navbar"></div></div>
+<script>
+"use strict";
+var state={stocks:[],universe:0,updated:"",refreshing:false,message:"",error:"",tab:"Explore",filter:"All",query:"",detail:null,watch:[],dataReceived:false};
+try{state.watch=JSON.parse(localStorage.getItem("watchlist")||"[]");}catch(e){state.watch=[];}
+function esc(v){return String(v===null||v===undefined?"":v).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]});}
+function dateText(s){if(!s)return "Date not supplied";var d=new Date(s);if(isNaN(d.getTime()))return s.slice(0,10);return d.toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"});}
+function currentStocks(){var a=state.stocks.slice();if(state.tab==="Saved")a=a.filter(function(x){return state.watch.indexOf(x.symbol)>=0});if(state.filter!=="All")a=a.filter(function(x){return x.direction===state.filter});var q=state.query.trim().toLowerCase();if(q)a=a.filter(function(x){return (x.symbol+" "+x.name).toLowerCase().includes(q)});return a;}
+function badge(v){return '<span class="badge '+v.toLowerCase()+'">'+esc(v==="WATCH"?"WATCH":v)+'</span>'}
+function formatAgo(iso){if(!iso)return "Never";var delta=Math.max(0,Date.now()-new Date(iso).getTime());if(delta<3600000)return "Updated just now";if(delta<86400000)return "Updated "+Math.floor(delta/3600000)+"h ago";return "Updated "+Math.floor(delta/86400000)+"d ago";}
+function appBack(){if(state.detail){state.detail=null;draw();return;}if(state.tab!=="Explore"){state.tab="Explore";draw();}}
+function tabTo(x){state.tab=x;state.detail=null;state.filter="All";state.query="";draw();}
+function filterTo(x){state.filter=x;draw();}
+function queryTo(q){state.query=q;drawListOnly();}
+function openStock(s){state.detail=s;draw();window.scrollTo(0,0);}
+function refresh(){if(state.refreshing)return;if(window.StockNative){state.refreshing=true;state.message="Searching public market coverage…";state.error="";draw();StockNative.refresh();}}
+function investigate(symbol){if(state.refreshing)return;if(window.StockNative){state.refreshing=true;state.message="Researching "+symbol+" across sources…";draw();StockNative.investigate(symbol);}}
+function openSource(encoded){try{var url=decodeURIComponent(encoded);if(url.startsWith("https://"))StockNative.open(url);}catch(e){}}
+function saveWatch(symbol){var i=state.watch.indexOf(symbol);if(i<0)state.watch.push(symbol);else state.watch.splice(i,1);try{localStorage.setItem("watchlist",JSON.stringify(state.watch));}catch(e){}draw();}
+function receiveNative(message){try{
+var msg=JSON.parse(message);
+if(msg.kind==="snapshot"){var d=msg.payload||{};state.stocks=d.stocks||[];state.updated=d.updated||"";state.universe=d.universe||0;state.dataReceived=true;}
+state.refreshing=!!msg.refreshing;state.message=msg.message||"";state.error=msg.error||"";
+if(state.detail&&!state.stocks.some(function(x){return x.symbol===state.detail;}))state.detail=null;
+draw();
+}catch(e){state.error="Could not read collected data";draw();}}
+window.receiveNative=receiveNative;window.appBack=appBack;
+function nav(){
+var menu=[["Explore","⌂"],["Saved","☆"],["Sources","▤"],["About","◈"]];
+document.getElementById("navbar").innerHTML=menu.map(function(x){return '<button class="nav-item '+(state.tab===x[0]?'selected':'')+'" onclick="tabTo(\''+x[0]+'\')"><span class="symbol">'+x[1]+'</span>'+x[0]+'</button>';}).join("");
+}
+function statusHtml(){
+if(!state.message&&!state.error)return "";
+return '<div class="status visible '+(state.error?"error":"")+'">'+(state.refreshing?'<div class="loader"></div>':'<span>ⓘ</span>')+'<span>'+esc(state.message||state.error)+'</span></div>';
+}
+function hero(){
+var total=state.stocks.length,actionable=state.stocks.filter(function(x){return x.direction==="BUY"||x.direction==="SELL"}).length;
+var coverage=state.stocks.reduce(function(n,x){return n+x.coverage;},0);
+return '<section class="hero"><div class="eyebrow">Market research radar</div><h1>Discover the signals.<br>Know the evidence.</h1>'+
+'<p>Research-driven Indian stock coverage, tracked on your device. No account, no paid feed and no automatic trading.</p>'+
+'<div class="hero-bottom"><button class="primary" '+(state.refreshing?'disabled':'')+' onclick="refresh()">'+(state.refreshing?'Scanning markets…':'↻ &nbsp; Refresh market')+'</button>'+
+'<span class="last-updated">'+esc(total?formatAgo(state.updated):"Start your first scan")+'</span></div></section>'+statusHtml()+
+'<section class="metrics"><div class="metric"><div class="metric-icon">◈</div><strong>'+total+'</strong><span>Stocks found</span></div>'+
+'<div class="metric"><div class="metric-icon" style="color:var(--green)">↗</div><strong>'+actionable+'</strong><span>Directional consensus</span></div>'+
+'<div class="metric"><div class="metric-icon" style="color:var(--gold)">▤</div><strong>'+coverage+'</strong><span>Saved source mentions</span></div></section>';
+}
+function stockCard(x){
+var agree=x.buy+x.sell, pct=Math.max(0,Math.min(100,x.confidence));
+return '<article class="stock-card" onclick="openStock(\''+esc(x.symbol)+'\')"><div class="card-top">'+
+'<div style="display:flex;align-items:center;gap:11px;min-width:0"><div class="ticker-logo">'+esc(x.symbol.substring(0,2))+'</div><div style="min-width:0"><div class="ticker-title">'+esc(x.symbol)+'</div><div class="company">'+esc(x.name)+'</div></div></div>'+badge(x.direction)+'</div>'+
+'<div class="evidence-grid"><div><div class="conf-label">Evidence confidence</div><div class="conf-value"><strong>'+x.confidence+'</strong><span>/100</span></div><div class="bar"><div style="width:'+pct+'%"></div></div></div>'+
+'<div><div class="conf-label">Grouped source signals</div><div class="source-count">'+agree+'</div><div class="signal-meter"><span class="green"><i class="dot" style="background:var(--green)"></i>'+x.buy+' Buy</span><span class="red"><i class="dot" style="background:var(--red)"></i>'+x.sell+' Sell</span></div></div></div>'+
+'<div class="card-foot"><span>'+x.coverage+' articles · '+x.recent+' recent signal(s)</span><span class="foot-more">View evidence ›</span></div></article>';
+}
+function listSection(){
+var stocks=currentStocks(), filters=["All","BUY","SELL","MIXED","WATCH"];
+return '<div class="title-row"><div><div class="section-title">'+(state.tab==="Saved"?"Saved watchlist":"Discovered stocks")+'</div>'+
+'<div class="section-caption">Ranked by publicly observable evidence, not expected returns</div></div><div class="count">'+stocks.length+' results</div></div>'+
+'<div class="search-wrap"><svg viewBox="0 0 24 24"><circle cx="10.7" cy="10.7" r="6.3"/><path d="m16 16 5 5"/></svg><input id="stockSearch" placeholder="Search symbol or company" oninput="queryTo(this.value)" value="'+esc(state.query)+'"></div>'+
+'<div class="chips">'+filters.map(function(f){return '<button class="chip '+(f===state.filter?'active':'')+'" onclick="filterTo(\''+f+'\')">'+(f==="All"?"All signals":f)+"</button>";}).join("")+'</div>'+
+'<div id="stockList">'+listContent(stocks)+'</div>';
+}
+function listContent(stocks){
+if(!stocks.length)return '<div class="empty"><div class="empty-icon">'+(state.tab==="Saved"?"☆":"⌁")+'</div><h3>'+(state.tab==="Saved"?"No saved stocks yet":"No matching stock signals")+'</h3>'+
+'<p>'+(state.tab==="Saved"?"Open any discovered stock and tap Save.":"Run Refresh market to search Indian-market coverage. If feeds have no matches, no recommendations will be invented.")+'</p>'+
+(state.tab==="Saved"?"":'<button class="primary" onclick="refresh()">Refresh market</button>')+'</div>';
+return stocks.map(stockCard).join("");
+}
+function drawListOnly(){
+var el=document.getElementById("stockList");if(!el)return;
+el.innerHTML=listContent(currentStocks());
+var n=document.querySelector(".count");if(n)n.textContent=currentStocks().length+" results";
+}
+function detailPage(){
+var x=state.stocks.find(function(s){return s.symbol===state.detail;});
+if(!x)return '';
+var saved=state.watch.indexOf(x.symbol)>=0;
+return '<div class="detail-head"><button class="back" onclick="appBack()">‹ Back</button><div><div class="detail-title">'+esc(x.symbol)+'</div><div class="detail-sub">'+esc(x.name)+'</div></div></div>'+
+'<div class="detail-section"><div class="split"><div><div class="eyebrow">Evidence classification</div><div style="margin-top:10px">'+badge(x.direction)+'</div></div><button class="outline" onclick="saveWatch(\''+esc(x.symbol)+'\')">'+(saved?"★ Saved":"☆ Save")+'</button></div>'+
+'<div class="two-col"><div class="statbox"><div class="num">'+x.confidence+'<span class="muted" style="font-size:12px">/100</span></div><div class="lbl">Provisional evidence score</div></div><div class="statbox"><div class="num">'+x.sources+'</div><div class="lbl">Grouped directional sources</div></div>'+
+'<div class="statbox"><div class="num green">'+x.buy+'</div><div class="lbl">Supporting BUY opinions</div></div><div class="statbox"><div class="num red">'+x.sell+'</div><div class="lbl">Supporting SELL opinions</div></div></div>'+
+'<p class="small-note">'+esc(x.explanation)+'</p>'+
+'<button class="primary" style="width:100%;margin-top:8px" '+(state.refreshing?'disabled':'')+' onclick="investigate(\''+esc(x.symbol)+'\')">⌕ &nbsp; Investigate this stock further</button>'+
+'</div>'+statusHtml()+
+'<div class="notice">This is <b>strength of observable headline evidence</b>, not a probability of profit or a verified analyst win rate. Headlines can omit conditions and change meaning; always open original research. No entry, target, or stop-loss is inferred from a headline.</div>'+
+'<div class="detail-section"><div class="split"><h3>Source evidence</h3><span class="tag">'+x.coverage+' articles</span></div>'+
+x.evidence.map(function(n){
+return '<div class="story"><div class="story-actions"><span class="pill-small '+n.stance.toLowerCase()+'">'+esc(n.stance)+'</span><span class="small-note">'+(n.counted?"Counted in score":"Context / duplicate / non-directional")+'</span></div>'+
+'<div class="story-title" style="margin-top:10px">'+esc(n.title)+'</div><div class="story-meta">'+esc(n.publisher||"Unspecified publisher")+' · '+esc(dateText(n.published))+'</div>'+
+'<button class="textlink" onclick="openSource(\''+encodeURIComponent(n.url)+'\')">Open original coverage ↗</button></div>';
+}).join("")+'</div>';
+}
+function sourcesPage(){
+var publishers={};
+state.stocks.forEach(function(stock){
+(stock.evidence||[]).forEach(function(n){var k=n.publisher||"Unspecified";if(!publishers[k])publishers[k]={articles:0,stocks:[]};publishers[k].articles++;if(publishers[k].stocks.indexOf(stock.symbol)<0)publishers[k].stocks.push(stock.symbol);});
+});
+var rows=Object.keys(publishers).map(function(k){return {name:k,articles:publishers[k].articles,stocks:publishers[k].stocks.length}}).sort(function(a,b){return b.articles-a.articles});
+return '<div class="title-row"><div><div class="section-title">Source coverage</div><div class="section-caption">Public articles discovered via RSS search</div></div></div>'+
+'<div class="notice">These are publishers of discovered stories, <b>not</b> independently audited trading analysts. Reposted brokerage opinions are grouped conservatively when identifiable. There is no claimed historical win rate.</div>'+
+'<div class="detail-section"><h3>Observed publishers</h3>'+
+(rows.length?rows.map(function(x){return '<div class="publisher-row"><div>'+esc(x.name)+'<div class="small-note">'+x.stocks+' tracked stock(s)</div></div><span class="tag">'+x.articles+' articles</span></div>'}).join(""):'<p class="small-note">Refresh the market to populate publishers.</p>')+'</div>';
+}
+function aboutPage(){
+return '<div class="title-row"><div><div class="section-title">How this works</div><div class="section-caption">Transparent, offline-first stock research</div></div></div>'+
+'<div class="detail-section"><h3>What Refresh does</h3><p class="small-note">Searches 10 broad Indian-financial-news RSS queries, then investigates up to 8 of the most mentioned directional stock candidates. It scans a built-in initial universe of '+state.universe+' recognizable Indian equities. All processing and storage run on your phone.</p></div>'+
+'<div class="detail-section"><h3>Evidence scoring / 100</h3><p class="small-note">Directional agreement (up to 25), distinct apparent research origins (up to 20), recent published signals (up to 15), and headlines mentioning price-level context (up to 10). The maximum is deliberately <b>70/100</b> until verified analyst outcomes and independently audited underlying research are available.</p>'+
+'<p class="small-note">Same-origin sources and identical syndicated headlines do not increase the score. Conflicting and neutral coverage remains visible. A headline is not an executed trade. “BUY” and “SELL” reflect explicit words in published headlines, not the app issuing trade advice.</p></div>'+
+'<div class="detail-section"><h3>Privacy and cost</h3><p class="small-note">No account, backend, cloud database, API key, or subscription. Data remains in local SQLite; watchlists remain on-device. Manual refresh uses public Google News RSS search. Availability and publication terms are controlled by the provider. The app does not bypass site restrictions or collect full paywalled articles.</p></div>'+
+'<div class="detail-section"><h3>Known limitations</h3><p class="small-note">Not a comprehensive market crawl; some symbols, nicknames, and research notes will be missed. RSS is an aggregator and original research authorship is not always known. Headlines can be ambiguous or inaccurate. No live NSE prices, target prices, automatic buy/sell execution, historical win rates, or verified return forecasts are provided in this release.</p></div>'+
+'<div class="notice">For information and independent research only, not personalized investment advice.</div>';
+}
+function draw(){
+nav();
+var content=document.getElementById("content");if(!content)return;
+if(state.detail){content.innerHTML=detailPage();return;}
+if(state.tab==="Explore"||state.tab==="Saved"){
+content.innerHTML=(state.tab==="Explore"?hero():'')+listSection()+
+'<div class="small-note" style="padding:12px 4px">Sources can be incomplete or delayed. Confidence indicates evidence consistency, not trade success. No fabricated price data.</div>';
+}else if(state.tab==="Sources")content.innerHTML=sourcesPage();
+else content.innerHTML=aboutPage();
+}
+draw();
+if(window.StockNative)StockNative.load();
+</script>
+</body>
+</html>
