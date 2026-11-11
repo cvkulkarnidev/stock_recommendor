@@ -64,7 +64,11 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
       "Indian midcap stocks buy recommendations analysts when:14d",
       "Indian largecap stocks brokerage upgrade downgrade when:14d",
       "NSE bank IT pharma stocks buy sell recommendation when:14d",
-      "Indian equity market technical stock picks for next week when:14d"
+      "Indian equity market technical stock picks for next week when:14d",
+      "Reliance HDFC Bank ICICI Bank SBI stock buy sell brokerage when:14d",
+      "Infosys TCS Wipro HCL Tech stock buy sell target when:14d",
+      "Tata Motors Maruti Suzuki Mahindra stock recommendation when:14d",
+      "HAL BEL Dixon Persistent Systems stock buy analysts when:14d"
     };
     public static final class RefreshReport {
         public int articles, inserted, failures, requests;
