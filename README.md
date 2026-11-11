@@ -49,3 +49,5 @@ The previous v0.1 manual-entry journal remains in source code (`Store.java`, `An
 Open the project in Android Studio or run `gradle :app:assembleDebug` after installing JDK 17 and Android SDK 35. CI checks that the output APK exists and is nonempty, then uploads the artifact. Build success is **not** equivalent to independently testing live RSS reliability on a physical phone.
 
 For personal research only. **Do not trade based solely on these signals.**
+
+CI includes the recommendation classification unit tests before APK packaging.
