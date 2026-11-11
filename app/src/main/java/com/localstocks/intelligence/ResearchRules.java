@@ -99,7 +99,7 @@ public final class ResearchRules {
                 String before=t.substring(Math.max(0,m.start()-85),m.start());
                 String after=t.substring(m.end(),Math.min(t.length(),m.end()+85));
                 Matcher direction=Pattern.compile(b?"\\b"+BUY_TERMS+"\\b":"\\b"+SELL_TERMS+"\\b").matcher(before);
-                while(direction.find())closest=Math.min(closest,m.start()-direction.end());
+                while(direction.find())closest=Math.min(closest,before.length()-direction.end());
                 direction=Pattern.compile(b?"\\b"+BUY_TERMS+"\\b":"\\b"+SELL_TERMS+"\\b").matcher(after);
                 if(direction.find())closest=Math.min(closest,direction.start());
             }
