@@ -258,7 +258,7 @@ return '<div class="story"><div class="story-actions"><strong>'+esc(c.name)+'</s
 '<div class="statbox"><div class="lbl">Target</div><div style="font-size:13px;font-weight:750;color:var(--green)">'+rupee(c.targetPrice)+'</div></div>'+
 '<div class="statbox"><div class="lbl">Stop-loss</div><div style="font-size:13px;font-weight:750;color:var(--red)">'+rupee(c.stopLoss)+'</div></div></div>'+
 '<div class="small-note">Source: '+esc(c.sourcePublisher)+' · Published '+esc(dateText(c.published))+' · levels only if explicitly stated</div>'+
-'<button class="textlink" onclick="openSource(\\''+encodeURIComponent(c.articleUrl)+'\\')">Read attributable coverage ↗</button></div>';
+'<button class="textlink" onclick="openSource(\''+encodeURIComponent(c.articleUrl)+'\')">Read attributable coverage ↗</button></div>';
 }).join(""):'<p class="small-note">No sufficiently attributable brokerage calls found. Use Deep Search for more coverage.</p>')+'</div>'+
 '<div class="detail-section"><div class="split"><h3>Source evidence</h3><span class="tag">'+x.coverage+' articles</span></div>'+
 x.evidence.map(function(n){
