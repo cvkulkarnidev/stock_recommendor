@@ -309,7 +309,10 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
         Map<String,List<News>> grouped=new HashMap<>();
         try(Cursor c=getReadableDatabase().rawQuery(
           "SELECT symbol,title,publisher,url,published,stance,origin,captured,excerpt,query_label FROM coverage WHERE channel = 'NEWS' AND published >= ? AND published != '' ORDER BY published DESC LIMIT 5000",
-          new String[]{LocalDate.now(ZoneOffset.UTC).minusDays(days-1).toString()})){
+          new String[]{LocalDate.now(java.time.ZoneId.of("Asia/Kolkata")).minusDays(days-1)
+            .atStartOfDay(java.time.ZoneId.of("Asia/Kolkata"))
+            .withZoneSameInstant(ZoneOffset.UTC).toOffsetDateTime()
+            .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)})){
             while(c.moveToNext()){
                 News n=new News(c.getString(0),c.getString(1),c.getString(2),c.getString(3),c.getString(4),c.getString(5),c.getString(6),c.getString(7),c.getString(8),c.getString(9));
                 if(!grouped.containsKey(n.symbol))grouped.put(n.symbol,new ArrayList<>());
@@ -345,7 +348,9 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
                 JSONObject j=new JSONObject();
                 try{
                     j.put("symbol",c.getString(0));j.put("title",c.getString(1));j.put("publisher",c.getString(2));
-                    j.put("url",c.getString(3));j.put("indexedAt",c.getString(4));j.put("channel",c.getString(5));
+                    j.put("url",c.getString(3));j.put("indexedAt",c.getString(4));
+                    String ch=c.getString(5);
+                    j.put("channel",ch.startsWith("INDEX_")?ch.substring(6):ch);
                     j.put("published","");j.put("excerpt",c.getString(6));j.put("queryLabel",c.getString(7));
                     j.put("note","Indexed lead: original date/author unverified. Excluded from confidence.");
                 }catch(Exception ignored){}
@@ -399,12 +404,18 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
             }
         }
         int buy=0,sell=0,known=0,other=0,withLevels=0;
+        double ageQuality=0;
         double weightedBuy=0,weightedSell=0,quality=0;
         for(Ranked r:independent.values()){
             if(r.signal.direction.equals("BUY")){buy++;weightedBuy+=r.src.weight;}
             else{sell++;weightedSell+=r.src.weight;}
             if(r.src.tier.equals("OTHER"))other++;else known++;
             quality+=r.src.weight;
+            try{
+                long hours=java.time.Duration.between(
+                    OffsetDateTime.parse(r.news.published),OffsetDateTime.now(ZoneOffset.UTC)).toHours();
+                if(hours>=0)ageQuality+=Math.max(0.0,1.0-hours/(24.0*(windowDays+1)));
+            }catch(Exception ignored){}
             if(normalize(r.news.title).matches(".*\\b(target|stop loss|entry|upside|downside|rs [0-9]+)\\b.*"))withLevels++;
         }
         int count=buy+sell;
@@ -416,7 +427,7 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
         double sourceQuality=count==0?0:25.0*quality/count;
         // Every article was filtered into the requested age window; narrower
         // windows award more freshness credit than older weekly/monthly evidence.
-        double freshness=count==0?0:10.0*Math.max(0,1.0-(windowDays-1)/45.0);
+        double freshness=count==0?0:10.0*ageQuality/count;
         double directness=count==0?0:10.0; // direction is explicitly attributable near the stock name
         int confidence=count==0?0:(int)Math.round(agreement+diversity+sourceQuality+freshness+directness);
         confidence=Math.min(85,confidence);
