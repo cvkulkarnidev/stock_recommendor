@@ -152,7 +152,7 @@ if(window.StockNative){
 }
 }
 function refresh(){if(state.refreshing)return;if(window.StockNative){state.refreshing=true;state.message="Searching public market coverage…";state.error="";draw();StockNative.refresh();}}
-function investigate(symbol){deepSearchNow(symbol);return;if(state.refreshing)return;if(window.StockNative){state.refreshing=true;state.message="Researching "+symbol+" across sources…";draw();StockNative.investigate(symbol);}}
+function investigate(symbol){deepSearchNow(symbol);}
 function openSource(encoded){try{var url=decodeURIComponent(encoded);if(url.startsWith("https://"))StockNative.open(url);}catch(e){}}
 function saveWatch(symbol){var i=state.watch.indexOf(symbol);if(i<0)state.watch.push(symbol);else state.watch.splice(i,1);try{localStorage.setItem("watchlist",JSON.stringify(state.watch));}catch(e){}draw();}
 function receiveNative(message){try{
@@ -194,7 +194,7 @@ var coverage=state.stocks.reduce(function(n,x){return n+x.coverage;},0);
 return '<section class="hero"><div class="eyebrow">Market research radar</div><h1>Discover the signals.<br>Know the evidence.</h1>'+
 '<p>Research-driven Indian stock coverage, tracked on your device. No account, no paid feed and no automatic trading.</p>'+
 '<div class="hero-bottom"><button class="primary" '+(state.refreshing?'disabled':'')+' onclick="refresh()">'+(state.refreshing?'Scanning markets…':'↻ &nbsp; Refresh market')+'</button>'+
-'<span class="last-updated">'+esc(total?formatAgo(state.updated):"Start your first scan")+'</span></div></section>'+statusHtml()+
+'<span class="last-updated">'+esc(total?formatAgo(state.updated):"Start your first scan")+'</span></div></section>'+statusHtml()+deepPanel()+
 '<section class="metrics"><div class="metric"><div class="metric-icon">◈</div><strong>'+total+'</strong><span>Stocks found</span></div>'+
 '<div class="metric"><div class="metric-icon" style="color:var(--green)">↗</div><strong>'+actionable+'</strong><span>Directional consensus</span></div>'+
 '<div class="metric"><div class="metric-icon" style="color:var(--gold)">▤</div><strong>'+coverage+'</strong><span>Saved source mentions</span></div></section>';
@@ -274,13 +274,12 @@ return '<div class="title-row"><div><div class="section-title">Public search-ind
 sections.map(function(pair){var list=grouped[pair[0]];return '<div class="detail-section"><div class="split"><h3>'+pair[1]+'</h3><span class="tag">'+list.length+' results</span></div>'+
 (list.length?list.slice(0,35).map(function(n){
 return '<div class="story"><div class="story-title">'+esc(n.symbol)+' · '+esc(n.title)+'</div>'+
-'<div class="story-meta">Found in index '+esc(dateText(n.indexedAt))+' · Original post date unknown</div>'+
+'<div class="story-meta">Found in index '+esc(dateText(n.indexedAt))+' · Original post date unknown · '+esc(n.queryLabel||n.channel)+'</div>'+
+(n.excerpt?'<p class="small-note">'+esc(n.excerpt)+'</p>':'')+
 '<button class="textlink" onclick="openSource(\''+encodeURIComponent(n.url)+'\')">Open indexed source ↗</button></div>';
 }).join(""):'<p class="small-note">No matching public index results were returned. This is not proof that the platform has no discussions.</p>')+'</div>';}).join("")+'</div>';
 }
-function drawIndexedSections(){
-var el=document.getElementById("content");if(el)el.innerHTML=indexedPage();
-}
+function drawIndexedSections(){var el=document.getElementById("content");if(el)el.innerHTML=indexedPage();}
 function sourcesPage(){
 var publishers={};
 state.stocks.forEach(function(stock){
