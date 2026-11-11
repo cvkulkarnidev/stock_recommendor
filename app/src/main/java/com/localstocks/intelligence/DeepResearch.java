@@ -41,6 +41,11 @@ public final class DeepResearch {
         report.candidateDomains=SourceDirectory.searchable().size();
         int consecutiveIndexFailures=0;
         for(DeepQueries.Query q:queries){
+            // If the free index is refusing searches, don't hammer it or
+            // silently report skipped requests as completed searches.
+            if(q.provider.equals("BING")&&consecutiveIndexFailures>=4){
+                report.skipped++;continue;
+            }
             report.queries++;
             try{
                 fetch(q,report);
