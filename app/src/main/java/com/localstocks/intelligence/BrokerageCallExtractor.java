@@ -172,8 +172,9 @@ public final class BrokerageCallExtractor {
             // Only attribute broker groups when the same recommendation/rating
             // clause addresses those institutions. Otherwise too ambiguous.
             for(String name:names) {
-                int index=norm(piece).indexOf(norm(name));
-                if(index<0&&!fromByline)continue;
+                // Each name was already added after matching the *original*
+                // alias. Canonical names (ICICI Securities / ICICI Direct)
+                // need not appear verbatim in the article.
                 // Source text must describe an actual rating/recommendation,
                 // or the single-stock headline directly state Buy or Sell.
                 boolean direct=ACTION.matcher(piece).find() || (stockHere&&names.size()==1);
