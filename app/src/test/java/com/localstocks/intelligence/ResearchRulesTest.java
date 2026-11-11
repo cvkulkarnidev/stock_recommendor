@@ -32,4 +32,39 @@ public class ResearchRulesTest {
         assertEquals("CURATED_NEWS",editorial.tier);
         assertTrue(editorial.weight<1.0);
     }
+
+    @Test public void stockNamedClearlyInDirectionalCalls(){
+        assertEquals("BUY",ResearchRules.classify(
+            "HDFC Bank: ICICI Direct says buy at ₹1700","HDFCBANK","HDFC Bank").direction);
+        assertEquals("SELL",ResearchRules.classify(
+            "Motilal Oswal recommends sell on Infosys","INFY","Infosys").direction);
+    }
+    @Test public void ambiguousInvestmentNewsIsNotABuy(){
+        assertEquals("WATCH",ResearchRules.classify(
+            "Broker upgrades target price of HDFC Bank but maintains hold rating","HDFCBANK","HDFC Bank").direction);
+        assertEquals("WATCH",ResearchRules.classify(
+            "Should investors buy HDFC Bank at current levels?","HDFCBANK","HDFC Bank").direction);
+        assertEquals("WATCH",ResearchRules.classify(
+            "Analyst says do not buy HDFC Bank","HDFCBANK","HDFC Bank").direction);
+        assertEquals("WATCH",ResearchRules.classify(
+            "Analyst says do not sell Infosys","INFY","Infosys").direction);
+        assertEquals("WATCH",ResearchRules.classify(
+            "Avoid selling Infosys despite volatility","INFY","Infosys").direction);
+    }
+    @Test public void mixedSignalIsNotOneSided(){
+        assertEquals("MIXED",ResearchRules.classify(
+            "Infosys: one broker says buy, another says sell","INFY","Infosys").direction);
+    }
+    @Test public void pureTargetPriceDoesNotImplyBuy(){
+        assertEquals("WATCH",ResearchRules.classify(
+            "Broker raises Infosys target to Rs 2000; keeps hold","INFY","Infosys").direction);
+    }
+    @Test public void disjointStockIsNotAttributed(){
+        assertEquals("WATCH",ResearchRules.classify(
+            "Broker recommends buy on Infosys; HDFC Bank results ahead","HDFCBANK","HDFC Bank").direction);
+    }
+    @Test public void knownResearchOriginGetsHigherWeight(){
+        assertTrue(ResearchRules.source("Sumeet Bagadia recommends buy on Infosys","Unknown blog").weight>
+          ResearchRules.source("Unknown blogger recommends buy on Infosys","Unknown blog").weight);
+    }
 }

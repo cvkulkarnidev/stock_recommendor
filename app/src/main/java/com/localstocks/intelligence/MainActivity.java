@@ -25,6 +25,8 @@ public final class MainActivity extends Activity {
     private volatile String lastError="";
     private volatile boolean pageReady=false;
     private volatile int windowDays=7;
+    private volatile String deepStock="";
+    private volatile String deepReport="";
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override public void onCreate(Bundle state){
@@ -75,6 +77,8 @@ public final class MainActivity extends Activity {
             payload.put("kind","snapshot");
             payload.put("payload",discovery.snapshot(windowDays));
             payload.put("lastRefresh",getPreferences(MODE_PRIVATE).getString("lastRefresh",""));
+            payload.put("deepStock",deepStock);
+            payload.put("deepReport",deepReport);
             payload.put("refreshing",refreshing.get());
             payload.put("message",lastMessage);
             payload.put("error",lastError);
@@ -105,12 +109,39 @@ public final class MainActivity extends Activity {
             finally{refreshing.set(false);sendSnapshot();}
         });
     }
+    private void deepSearch(String input) {
+        String symbol=discovery.resolveStock(input);
+        if(symbol.isEmpty()){
+            String candidate=input==null?"":input.trim().toUpperCase(java.util.Locale.ROOT);
+            if(candidate.matches("[A-Z0-9.&-]{2,30}"))symbol=candidate;
+        }
+        if(symbol.isEmpty()){sendStatus(false,"Enter a recognized company name or valid NSE ticker",true);return;}
+        if(!refreshing.compareAndSet(false,true)){sendStatus(true,"Search already running",false);return;}
+        final String s=symbol;
+        deepStock=s;deepReport="";
+        sendStatus(true,"Deep Search "+s+": scanning brokerages, analysts, publications and public indexes…",false);
+        jobs.execute(()->{
+            try{
+                String company=discovery.symbolName(s);
+                if(company.isEmpty())company=s;
+                DiscoveryEngine.DeepReport r=discovery.deepSearch(s,company);
+                deepReport="Deep Search "+s+" · "+r.successes+"/"+r.queries+
+                    " portal queries succeeded · "+r.found+" stock-matched hits · "+r.saved+
+                    " new saved sources · "+r.failures+" unavailable";
+                sendStatus(false,deepReport,r.successes==0);
+            }catch(Exception e){
+                deepReport="Deep Search failed: "+e.getMessage();
+                sendStatus(false,deepReport,true);
+            }finally{refreshing.set(false);sendSnapshot();}
+        });
+    }
     private final class Bridge {
         @JavascriptInterface public void load(){sendSnapshot();}
         @JavascriptInterface public void setWindow(int days){
             if(days==1||days==2||days==3||days==7||days==14||days==30){windowDays=days;sendSnapshot();}
         }
         @JavascriptInterface public void refresh(){start(true,"");}
+        @JavascriptInterface public void deepSearch(String ticker){MainActivity.this.deepSearch(ticker);}
         @JavascriptInterface public void investigate(String symbol){
             String s=symbol==null?"":symbol.trim().toUpperCase(java.util.Locale.ROOT);
             if(s.matches("[A-Z0-9.&-]{2,30}")&&!discovery.symbolName(s).isEmpty())start(false,s);

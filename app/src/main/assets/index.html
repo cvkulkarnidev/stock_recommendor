@@ -129,7 +129,7 @@ header{padding:22px 0 17px;display:flex;align-items:center;justify-content:space
 <div class="bottom-nav"><div class="nav-content" id="navbar"></div></div>
 <script>
 "use strict";
-var state={stocks:[],universe:0,updated:"",refreshing:false,message:"",error:"",tab:"Explore",filter:"All",query:"",detail:null,watch:[],dataReceived:false,windowDays:7,curatedBrokers:[],curatedPublishers:[],curatedAnalysts:[],indexedLeads:[]};
+var state={stocks:[],universe:0,updated:"",refreshing:false,message:"",error:"",tab:"Explore",filter:"All",query:"",detail:null,watch:[],dataReceived:false,windowDays:7,curatedBrokers:[],curatedPublishers:[],curatedAnalysts:[],indexedLeads:[],deepStock:"",deepReport:"",deepQuery:"",indexedFilter:""};
 try{state.watch=JSON.parse(localStorage.getItem("watchlist")||"[]");}catch(e){state.watch=[];}
 function esc(v){return String(v===null||v===undefined?"":v).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]});}
 function dateText(s){if(!s)return "Date not supplied";var d=new Date(s);if(isNaN(d.getTime()))return s.slice(0,10);return d.toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"});}
@@ -142,13 +142,22 @@ function filterTo(x){state.filter=x;draw();}
 function timeTo(x){state.windowDays=x;if(window.StockNative)StockNative.setWindow(x);draw();}
 function queryTo(q){state.query=q;drawListOnly();}
 function openStock(s){state.detail=s;draw();window.scrollTo(0,0);}
+function deepSearchNow(symbol){
+var value=String(symbol||(document.getElementById("deepInput")||{}).value||"").trim();
+if(!value||state.refreshing)return;
+state.deepQuery=value;state.deepStock=value;state.deepReport="";
+if(window.StockNative){
+ state.refreshing=true;state.message="Deep searching multiple public sources for "+value+"…";
+ StockNative.deepSearch(value);draw();
+}
+}
 function refresh(){if(state.refreshing)return;if(window.StockNative){state.refreshing=true;state.message="Searching public market coverage…";state.error="";draw();StockNative.refresh();}}
-function investigate(symbol){if(state.refreshing)return;if(window.StockNative){state.refreshing=true;state.message="Researching "+symbol+" across sources…";draw();StockNative.investigate(symbol);}}
+function investigate(symbol){deepSearchNow(symbol);}
 function openSource(encoded){try{var url=decodeURIComponent(encoded);if(url.startsWith("https://"))StockNative.open(url);}catch(e){}}
 function saveWatch(symbol){var i=state.watch.indexOf(symbol);if(i<0)state.watch.push(symbol);else state.watch.splice(i,1);try{localStorage.setItem("watchlist",JSON.stringify(state.watch));}catch(e){}draw();}
 function receiveNative(message){try{
 var msg=JSON.parse(message);
-if(msg.kind==="snapshot"){var d=msg.payload||{};state.stocks=d.stocks||[];state.updated=msg.lastRefresh||"";state.windowDays=d.windowDays||state.windowDays;state.universe=d.universe||0;state.curatedBrokers=d.curatedBrokers||[];state.curatedPublishers=d.curatedPublishers||[];state.curatedAnalysts=d.curatedAnalysts||[];state.indexedLeads=d.indexedLeads||[];state.dataReceived=true;}
+if(msg.kind==="snapshot"){var d=msg.payload||{};state.stocks=d.stocks||[];state.updated=msg.lastRefresh||"";state.windowDays=d.windowDays||state.windowDays;state.universe=d.universe||0;state.curatedBrokers=d.curatedBrokers||[];state.curatedPublishers=d.curatedPublishers||[];state.curatedAnalysts=d.curatedAnalysts||[];state.indexedLeads=d.indexedLeads||[];state.deepStock=msg.deepStock||state.deepStock;state.deepReport=msg.deepReport||state.deepReport;state.dataReceived=true;}
 state.refreshing=!!msg.refreshing;state.message=msg.message||"";state.error=msg.error||"";
 if(state.detail&&!state.stocks.some(function(x){return x.symbol===state.detail;}))state.detail=null;
 draw();
@@ -162,13 +171,30 @@ function statusHtml(){
 if(!state.message&&!state.error)return "";
 return '<div class="status visible '+(state.error?"error":"")+'">'+(state.refreshing?'<div class="loader"></div>':'<span>ⓘ</span>')+'<span>'+esc(state.message||state.error)+'</span></div>';
 }
+function deepPanel(){
+return '<section class="detail-section" style="margin-top:13px;background:linear-gradient(135deg,#142b3c,#132039)"><div class="eyebrow">MULTI-PORTAL DEEP RESEARCH</div>'+
+'<div class="section-title" style="margin:8px 0">Search a particular stock</div>'+
+'<div class="small-note" style="margin-bottom:11px">25 expanded searches: brokerage portals, financial news, individual analysts, Reddit and X public indexes. No paid APIs.</div>'+
+'<div class="search-wrap" style="margin:0 0 10px"><input id="deepInput" style="padding-left:15px" placeholder="NSE symbol or known company" oninput="state.deepQuery=this.value" value="'+esc(state.deepQuery)+'"></div>'+
+'<button class="primary" style="width:100%" '+(state.refreshing?'disabled':'')+' onclick="deepSearchNow()">⌕ &nbsp; Deep Search across portals</button>'+
+(state.deepReport?'<p class="small-note" style="margin-top:12px">'+esc(state.deepReport)+'</p>':'')+
+(state.deepStock?'<button class="textlink" onclick="viewDeepResults()">View '+esc(state.deepStock)+' results and indexed sources ›</button>':'')+
+'</section>';
+}
+function viewDeepResults(){
+state.indexedFilter=state.deepStock;
+if(state.stocks.some(function(x){return x.symbol===state.deepStock;})){
+ state.detail=state.deepStock;state.tab="Explore";
+}else{state.tab="Indexed";state.detail=null;}
+draw();
+}
 function hero(){
 var total=state.stocks.length,actionable=state.stocks.filter(function(x){return x.direction==="BUY"||x.direction==="SELL"}).length;
 var coverage=state.stocks.reduce(function(n,x){return n+x.coverage;},0);
 return '<section class="hero"><div class="eyebrow">Market research radar</div><h1>Discover the signals.<br>Know the evidence.</h1>'+
 '<p>Research-driven Indian stock coverage, tracked on your device. No account, no paid feed and no automatic trading.</p>'+
 '<div class="hero-bottom"><button class="primary" '+(state.refreshing?'disabled':'')+' onclick="refresh()">'+(state.refreshing?'Scanning markets…':'↻ &nbsp; Refresh market')+'</button>'+
-'<span class="last-updated">'+esc(total?formatAgo(state.updated):"Start your first scan")+'</span></div></section>'+statusHtml()+
+'<span class="last-updated">'+esc(total?formatAgo(state.updated):"Start your first scan")+'</span></div></section>'+statusHtml()+deepPanel()+
 '<section class="metrics"><div class="metric"><div class="metric-icon">◈</div><strong>'+total+'</strong><span>Stocks found</span></div>'+
 '<div class="metric"><div class="metric-icon" style="color:var(--green)">↗</div><strong>'+actionable+'</strong><span>Directional consensus</span></div>'+
 '<div class="metric"><div class="metric-icon" style="color:var(--gold)">▤</div><strong>'+coverage+'</strong><span>Saved source mentions</span></div></section>';
@@ -209,7 +235,7 @@ return '<div class="two-col" style="grid-template-columns:repeat(3,1fr);margin:1
 '<div class="statbox"><div class="lbl">Buy / sell entry</div><div style="font-size:13px;font-weight:700;margin-top:6px">'+rupee(n.entryPrice)+'</div></div>'+
 '<div class="statbox"><div class="lbl">Target price</div><div style="font-size:13px;font-weight:700;margin-top:6px;color:var(--green)">'+rupee(n.targetPrice)+'</div></div>'+
 '<div class="statbox"><div class="lbl">Stop-loss</div><div style="font-size:13px;font-weight:700;margin-top:6px;color:var(--red)">'+rupee(n.stopLoss)+'</div></div></div>'+
-'<div class="small-note">Price levels extracted from headline text only. Verify dates and values in the original report before trading.</div>';
+'<div class="small-note">Prices explicitly detected in public RSS title/excerpt, not independently verified against the original report. Missing fields are not estimated.</div>';
 }
 function detailPage(){
 var x=state.stocks.find(function(s){return s.symbol===state.detail;});
@@ -221,30 +247,40 @@ return '<div class="detail-head"><button class="back" onclick="appBack()">‹ Ba
 '<div class="two-col"><div class="statbox"><div class="num">'+x.confidence+'<span class="muted" style="font-size:12px">/100</span></div><div class="lbl">Provisional evidence score (max 85)</div></div><div class="statbox"><div class="num">'+x.sources+'</div><div class="lbl">Grouped directional sources</div></div>'+
 '<div class="statbox"><div class="num green">'+x.buy+'</div><div class="lbl">Supporting BUY opinions</div></div><div class="statbox"><div class="num red">'+x.sell+'</div><div class="lbl">Supporting SELL opinions</div></div></div>'+
 '<p class="small-note">'+esc(x.explanation)+'</p>'+
-'<button class="primary" style="width:100%;margin-top:8px" '+(state.refreshing?'disabled':'')+' onclick="investigate(\''+esc(x.symbol)+'\')">⌕ &nbsp; Investigate this stock further</button>'+
+'<button class="primary" style="width:100%;margin-top:8px" '+(state.refreshing?'disabled':'')+' onclick="investigate(\''+esc(x.symbol)+'\')">⌕ &nbsp; Deep Search all portals for this stock</button>'+
 '</div>'+statusHtml()+
 '<div class="notice">Confidence is <b>source-weighted, stock-linked headline evidence</b>, not a likelihood of profit. Curated means a known source name, not an audited successful analyst. BUY/SELL terms must appear close to the named stock; ambiguous discussions remain WATCH. Review the original report before acting.</div>'+
 '<div class="detail-section"><div class="split"><h3>Source evidence</h3><span class="tag">'+x.coverage+' articles</span></div>'+
 x.evidence.map(function(n){
 return '<div class="story"><div class="story-actions"><span class="pill-small '+n.stance.toLowerCase()+'">'+esc(n.stance)+'</span><span class="small-note">'+(n.counted?"Counted in score":"Context / duplicate / non-directional")+'</span></div>'+
-'<div class="story-title" style="margin-top:10px">'+esc(n.title)+'</div>'+levelRow(n)+'<div class="story-meta">'+esc(n.publisher||"Unspecified publisher")+' · Published '+esc(dateText(n.published))+' · '+esc(n.sourceTier==="NAMED_BROKER"||n.sourceTier==="BROKER_PUBLISHER"?"Curated brokerage":n.sourceTier==="CURATED_NEWS"?"Curated publication":"Other source")+'</div>'+
+'<div class="story-title" style="margin-top:10px">'+esc(n.title)+'</div>'+
+(n.excerpt&&n.excerpt!==n.title?'<p class="small-note" style="margin:8px 0">'+esc(n.excerpt)+'</p>':'')+
+(n.queryLabel?'<div class="small-note">Discovery path: '+esc(n.queryLabel)+'</div>':'')+
+levelRow(n)+'<div class="story-meta">'+esc(n.publisher||"Unspecified publisher")+' · Published '+esc(dateText(n.published))+' · '+esc(n.sourceTier==="NAMED_BROKER"||n.sourceTier==="BROKER_PUBLISHER"?"Curated brokerage":n.sourceTier==="CURATED_NEWS"?"Curated publication":"Other source")+'</div>'+
 '<div class="small-note">Attributed source: '+esc(n.sourceName)+' · '+esc(n.reason)+'</div>'+
 '<button class="textlink" onclick="openSource(\''+encodeURIComponent(n.url)+'\')">Open original coverage ↗</button></div>';
 }).join("")+'</div>';
 }
 function indexedPage(){
-var grouped={REDDIT:[],X_INDEX:[],INDEPENDENT:[]};
-(state.indexedLeads||[]).forEach(function(n){if(grouped[n.channel])grouped[n.channel].push(n);});
-var sections=[["REDDIT","Reddit indexed discussions"],["X_INDEX","X / Twitter indexed posts"],["INDEPENDENT","Independent analyst index results"]];
+var grouped={REDDIT:[],X_INDEX:[],INDEPENDENT:[],ANALYSTS:[],BROKERAGES:[]};
+(state.indexedLeads||[]).forEach(function(n){
+ if(state.indexedFilter&&n.symbol!==state.indexedFilter)return;
+ if(grouped[n.channel])grouped[n.channel].push(n);
+});
+var sections=[["REDDIT","Reddit indexed discussions"],["X_INDEX","X / Twitter indexed posts"],["INDEPENDENT","Independent analyst index results"],["ANALYSTS","Named analyst index results"],["BROKERAGES","Brokerage index results"]];
 return '<div class="title-row"><div><div class="section-title">Public search-index results</div><div class="section-caption">Free discovery · not direct Reddit/X APIs</div></div></div>'+
-'<div class="notice">These are links found in a free search-engine index. Original post timestamps and author identity are not verified, so they <b>do not inflate trade confidence</b>. The original platform may require a login. No restricted scraping is used.</div>'+
+'<div class="search-wrap"><input style="padding-left:14px" placeholder="Filter indexed results by NSE symbol (optional)" value="'+esc(state.indexedFilter)+'" oninput="state.indexedFilter=this.value.toUpperCase()" onkeydown="if(event.key===\'Enter\')draw()"></div><button class="outline" style="margin-bottom:12px" onclick="draw()">Apply filter</button>'+
+'<div id="indexedContent"><div class="notice">These are links found in a free search-engine index. Original post timestamps and author identity are not verified, so they <b>do not inflate trade confidence</b>. The original platform may require a login. No restricted scraping is used.</div>'+
 sections.map(function(pair){var list=grouped[pair[0]];return '<div class="detail-section"><div class="split"><h3>'+pair[1]+'</h3><span class="tag">'+list.length+' results</span></div>'+
 (list.length?list.slice(0,35).map(function(n){
 return '<div class="story"><div class="story-title">'+esc(n.symbol)+' · '+esc(n.title)+'</div>'+
-'<div class="story-meta">Found in index '+esc(dateText(n.indexedAt))+' · Original post date unknown</div>'+
+'<div class="story-meta">Found in index '+esc(dateText(n.indexedAt))+' · Original post date unknown · '+esc(n.queryLabel||n.channel)+'</div>'+
+(n.entryPrice!=null||n.targetPrice!=null||n.stopLoss!=null?'<div class="notice" style="margin:8px 0">Indicative indexed levels only. Original date and author unverified; not counted in confidence.</div>'+levelRow(n):'')+
+(n.excerpt?'<p class="small-note">'+esc(n.excerpt)+'</p>':'')+
 '<button class="textlink" onclick="openSource(\''+encodeURIComponent(n.url)+'\')">Open indexed source ↗</button></div>';
-}).join(""):'<p class="small-note">No matching public index results were returned. This is not proof that the platform has no discussions.</p>')+'</div>';}).join("");
+}).join(""):'<p class="small-note">No matching public index results were returned. This is not proof that the platform has no discussions.</p>')+'</div>';}).join("")+'</div>';
 }
+function drawIndexedSections(){var el=document.getElementById("content");if(el)el.innerHTML=indexedPage();}
 function sourcesPage(){
 var publishers={};
 state.stocks.forEach(function(stock){

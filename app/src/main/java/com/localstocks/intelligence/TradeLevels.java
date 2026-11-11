@@ -4,58 +4,79 @@ import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** Extract prices only when explicitly labeled in a single-stock public headline. */
+/**
+ * Strict extraction from visible, attributed text snippets. The caller must
+ * have already identified exactly one stock and an unambiguous trade direction.
+ * Values are NOT verified against an original signed research report.
+ */
 public final class TradeLevels {
     private TradeLevels(){}
     public static final class Levels {
         public final Double entry, target, stop;
         public final String entryLabel;
-        Levels(Double e, Double t, Double s, String label){entry=e;target=t;stop=s;entryLabel=label;}
+        public Levels(Double e,Double t,Double s,String l){entry=e;target=t;stop=s;entryLabel=l;}
         public boolean hasAny(){return entry!=null||target!=null||stop!=null;}
+        public boolean complete(){return entry!=null&&target!=null&&stop!=null;}
     }
-    private static final String MONEY="(?:₹|Rs\\.?\\s*|INR\\s*)\\s*([0-9]{1,3}(?:,[0-9]{3})+|[0-9]{2,6})(?:\\.([0-9]{1,2}))?";
-    private static final Pattern AMOUNT=Pattern.compile(MONEY,Pattern.CASE_INSENSITIVE);
-    private static Double value(String s) {
-        Matcher m=AMOUNT.matcher(s);
-        if(!m.find())return null;
+    private static final String NUM="([0-9]{1,3}(?:,[0-9]{3})+(?:\\.[0-9]{1,2})?|[0-9]{2,6}(?:\\.[0-9]{1,2})?)";
+    private static final String CUR="(?:₹\\s*|Rs\\.?\\s*|INR\\s*)";
+    private static final String PRICE="(?:"+CUR+")?"+NUM+"(?![0-9%])";
+    private static final Pattern FIGURE=Pattern.compile(PRICE,Pattern.CASE_INSENSITIVE);
+    private static final String TARGET="(?:target(?:s| price)?|price target|tgt|tp\\b|objective)";
+    private static final String STOP="(?:stop[\\s-]?loss|stoploss|s\\s*/\\s*l|sl\\b)";
+    private static final String ENTRY="(?:entry(?: price| level| zone)?|buy(?:ing)?(?: price| level| zone)?|sell(?:ing)?(?: price| level| zone)?|short(?: at| near)?)";
+    private static Pattern labelled(String label) {
+        return Pattern.compile("(?i)\\b(?:"+label+")\\b\\s*(?:(?:price|levels?|at|of|is|set at|near|around|to|:|=|@|₹)\\s*){0,3}("+PRICE+")");
+    }
+    private static Double read(Matcher m,int group){
         try{
-            double amount=Double.parseDouble(m.group(1).replace(",","")+(m.group(2)==null?"":"."+m.group(2)));
-            return amount>=10&&amount<=1000000?amount:null;
-        }catch(Exception e){return null;}
+            Matcher n=FIGURE.matcher(m.group(group));
+            if(!n.find())return null;
+            double x=Double.parseDouble(n.group(1).replace(",",""));
+            return x>=10&&x<=1000000?x:null;
+        }catch(Exception ignored){return null;}
     }
-    private static Double tagged(String headline,String tags){
-        Pattern p=Pattern.compile("\\b(?:"+tags+")\\b\\s*(?:price|of|at|near|around|:|is|set at|placed at|of around|up to|to|levels?)?\\s*[:\\-]?\\s*("+MONEY+")",Pattern.CASE_INSENSITIVE);
-        Matcher m=p.matcher(headline);
-        if(!m.find())return null;
-        return value(m.group(1));
+    private static Double labelledAmount(String text,String label){
+        Matcher m=labelled(label).matcher(text);
+        if(m.find())return read(m,1);
+        return null;
     }
-    private static Double reverse(String headline,String tags){
-        Pattern p=Pattern.compile("("+MONEY+")\\s*(?:as|for|is)?\\s*(?:"+tags+")\\b",Pattern.CASE_INSENSITIVE);
-        Matcher m=p.matcher(headline);
-        return m.find()?value(m.group(1)):null;
+    private static Double reversedAmount(String text,String label){
+        Matcher m=Pattern.compile("(?i)("+PRICE+")\\s*(?:as|for|is|the)?\\s*\\b(?:"+label+")\\b").matcher(text);
+        if(m.find())return read(m,1);
+        return null;
     }
-    public static Levels extract(String headline,String direction){
-        if(!"BUY".equals(direction)&&!"SELL".equals(direction))
+    private static Double entryNearAction(String text){
+        // "Buy HDFC Bank at Rs 1,250" -- excludes an intervening target/SL,
+        // second recommendation, date, or lengthy unrelated prose.
+        String between="(?:(?!\\b(?:target|tgt|objective|stop|loss|sl|tp|buy|sell|short)\\b)[^.;\\n]){0,56}";
+        Pattern pattern=Pattern.compile("(?i)\\b(?:buy|sell|short|accumulate)\\b"+between+
+            "(?:\\b(?:at|near|around|above|below|between)\\b|@)\\s*("+PRICE+")");
+        Matcher m=pattern.matcher(text);
+        return m.find()?read(m,1):null;
+    }
+    private static boolean unsafeText(String t){
+        String n=t.toLowerCase(Locale.ROOT);
+        return n.contains("?")||n.matches(".*\\b(?:rumour|rumor|hypothetical|example|illustrative|not a recommendation|no trade)\\b.*");
+    }
+    public static Levels extract(String text,String direction){
+        if(text==null||(!"BUY".equals(direction)&&!"SELL".equals(direction))||unsafeText(text))
             return new Levels(null,null,null,"");
-        Double entry=tagged(headline,"(?:buy|sell|entry|enter|buying|selling)\\s*(?:zone|range|price|level)?");
-        if(entry==null)entry=reverse(headline,"(?:buy|sell|entry)(?:\\s+level)?");
-        // Common phrasing: "Buy HDFC Bank at Rs 1,250". At the call site
-        // direction is already attributable to exactly one recognized stock.
-        if(entry==null && headline.toLowerCase(Locale.ROOT).matches(".*\\b(?:buy|sell|entry|accumulate)\\b.*"))
-            entry=tagged(headline,"(?:at|near|around|above|below)");
-        Double target=tagged(headline,"(?:target|targets|target price|price target|tp|objective)");
-        if(target==null)target=reverse(headline,"(?:target|target price|price target)");
-        Double stop=tagged(headline,"(?:stop[ -]?loss|sl|stop)");
-        if(stop==null)stop=reverse(headline,"(?:stop[ -]?loss|sl)");
-        // Never call a regular number (e.g. 2026) a target without Rs/INR/₹.
-        // Cross-check only if all relevant values are present; contradictory
-        // levels are hidden rather than presented as actionable.
-        if(entry!=null&&target!=null){
-            if(("BUY".equals(direction)&&target<=entry)||("SELL".equals(direction)&&target>=entry))target=null;
-        }
-        if(entry!=null&&stop!=null){
-            if(("BUY".equals(direction)&&stop>=entry)||("SELL".equals(direction)&&stop<=entry))stop=null;
-        }
-        return new Levels(entry,target,stop,"Explicit public headline");
+        Double entry=labelledAmount(text,ENTRY);
+        if(entry==null)entry=entryNearAction(text);
+        if(entry==null)entry=reversedAmount(text,ENTRY);
+        Double target=labelledAmount(text,TARGET);
+        if(target==null)target=reversedAmount(text,TARGET);
+        Double stop=labelledAmount(text,STOP);
+        if(stop==null)stop=reversedAmount(text,STOP);
+        // Reject invalid trading geometry instead of silently converting the
+        // first random price in the story into an entry/stop.
+        if(entry!=null&&target!=null&&(
+            ("BUY".equals(direction)&&target<=entry)||
+            ("SELL".equals(direction)&&target>=entry))) target=null;
+        if(entry!=null&&stop!=null&&(
+            ("BUY".equals(direction)&&stop>=entry)||
+            ("SELL".equals(direction)&&stop<=entry)))stop=null;
+        return new Levels(entry,target,stop,"Explicit attributed public text");
     }
 }

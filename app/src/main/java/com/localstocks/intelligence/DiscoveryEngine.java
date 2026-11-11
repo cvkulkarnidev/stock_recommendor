@@ -87,13 +87,17 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
         final String symbol, name;
         Mention(String s,String n){symbol=s;name=n;}
     }
-    public DiscoveryEngine(Context c){super(c,"discovery_v2.db",null,2);}
+    public DiscoveryEngine(Context c){super(c,"discovery_v2.db",null,3);}
     @Override public void onCreate(SQLiteDatabase db) {
-        db.execSQL("CREATE TABLE coverage(symbol TEXT NOT NULL, title TEXT NOT NULL, publisher TEXT NOT NULL, url TEXT NOT NULL, published TEXT NOT NULL, captured TEXT NOT NULL, stance TEXT NOT NULL, origin TEXT NOT NULL, channel TEXT NOT NULL DEFAULT 'NEWS', PRIMARY KEY(symbol,url))");
+        db.execSQL("CREATE TABLE coverage(symbol TEXT NOT NULL, title TEXT NOT NULL, publisher TEXT NOT NULL, url TEXT NOT NULL, published TEXT NOT NULL, captured TEXT NOT NULL, stance TEXT NOT NULL, origin TEXT NOT NULL, channel TEXT NOT NULL DEFAULT 'NEWS', excerpt TEXT NOT NULL DEFAULT '', query_label TEXT NOT NULL DEFAULT '', PRIMARY KEY(symbol,url))");
         db.execSQL("CREATE INDEX idx_cov_symbol ON coverage(symbol)");
     }
     @Override public void onUpgrade(SQLiteDatabase db,int oldVersion,int newVersion){
         if(oldVersion<2)db.execSQL("ALTER TABLE coverage ADD COLUMN channel TEXT NOT NULL DEFAULT 'NEWS'");
+        if(oldVersion<3){
+            db.execSQL("ALTER TABLE coverage ADD COLUMN excerpt TEXT NOT NULL DEFAULT ''");
+            db.execSQL("ALTER TABLE coverage ADD COLUMN query_label TEXT NOT NULL DEFAULT ''");
+        }
     }
     private static String normalize(String s){return s.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+"," ").replaceAll("\\s+"," ").trim();}
     private static boolean containsPhrase(String text,String phrase){return (" "+text+" ").contains(" "+normalize(phrase)+" ");}
@@ -131,15 +135,6 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
         }
         return out;
     }
-    private static String stance(String title){
-        String t=normalize(title);
-        boolean sell=t.matches(".*\\b(sell|selling|exit|reduce|downgrade|avoid|bearish|underperform|book profit|cuts rating)\\b.*");
-        boolean buy=t.matches(".*\\b(buy|buying|accumulate|upgrade|bullish|outperform|add rating|top pick|stock picks|stocks to buy)\\b.*");
-        if(buy&&sell)return "MIXED";
-        if(sell)return "SELL";
-        if(buy)return "BUY";
-        return "WATCH";
-    }
     private static String origin(String title,String publisher) {
         String n=normalize(title);
         String[] firms={"motilal oswal","icici direct","anand rathi","choice broking","prabhudas lilladher","hdfc securities","kotak securities","axis securities","emkay","jm financial","nuvama","jefferies","nomura","goldman sachs","morgan stanley","ubs","bernstein","citi","hsbc","bob capital","sharekhan","geojit"};
@@ -166,6 +161,66 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
         v.put("captured",now());v.put("stance","WATCH");
         v.put("origin","index:"+hit.channel);v.put("channel",hit.channel);
         return getWritableDatabase().insertWithOnConflict("coverage",null,v,SQLiteDatabase.CONFLICT_IGNORE)!=-1;
+    }
+    private boolean insertDeep(String symbol,DeepResearch.Hit hit){
+        if(hit.url==null||!hit.url.startsWith("https://")||hit.title==null)return false;
+        ContentValues v=new ContentValues();
+        v.put("symbol",symbol);v.put("title",hit.title);v.put("publisher",
+             hit.provider.equals("BING")?hit.channel+" indexed search":hit.publisher);
+        v.put("url",hit.url);v.put("published",hit.published);
+        v.put("captured",now());v.put("stance","WATCH");v.put("origin","deep:"+hit.channel);
+        v.put("channel",hit.provider.equals("GOOGLE")?"NEWS":"INDEX_"+hit.channel);
+        v.put("excerpt",hit.excerpt);v.put("query_label",hit.channel+" / "+hit.provider);
+        long inserted=getWritableDatabase().insertWithOnConflict("coverage",null,v,SQLiteDatabase.CONFLICT_IGNORE);
+        if(inserted==-1&&!hit.excerpt.isEmpty()){
+            // Keep original publication/attribution; only enrich prior headline
+            // discovery with an additional publicly supplied RSS excerpt.
+            ContentValues enrichment=new ContentValues();
+            enrichment.put("excerpt",hit.excerpt);enrichment.put("query_label",hit.channel+" / "+hit.provider);
+            getWritableDatabase().update("coverage",enrichment,
+                "symbol=? AND url=? AND excerpt=''",new String[]{symbol,hit.url});
+        }
+        return inserted!=-1;
+    }
+    private static boolean mentionsDeepStock(String text,String symbol,String company){
+        if(text==null)return false;
+        String norm=normalize(text);
+        String name=normalize(company);
+        if(name.length()>=4&&(" "+norm+" ").contains(" "+name+" "))return true;
+        String key=normalize(symbol);
+        return key.length()>=4&&(" "+norm+" ").contains(" "+key+" ");
+    }
+    private static boolean matchesSingleStock(String text,String symbol,String company){
+        List<Mention> mentions=findMentions(text);
+        if(mentions.size()==1)return symbol.equals(mentions.get(0).symbol);
+        // The market-wide recognizer covers only a curated NSE universe.
+        // Deep Search may receive other tickers; match those explicitly while
+        // avoiding ambiguous short words or multi-company roundups.
+        return mentions.isEmpty()&&symbol.length()>=4&&mentionsDeepStock(text,symbol,company);
+    }
+    public static final class DeepReport {
+        public int queries,successes,found,saved,failures;
+        public final java.util.List<String> errors=new java.util.ArrayList<>();
+    }
+    public DeepReport deepSearch(String symbol,String company){
+        DeepResearch.Report source=DeepResearch.run(symbol,company);
+        DeepReport r=new DeepReport();
+        r.queries=source.queries;r.successes=source.succeeded;
+        r.failures=source.queries-source.succeeded;
+        r.errors.addAll(source.failures);
+        for(DeepResearch.Hit h:source.hits){
+            if(!mentionsDeepStock(h.title,symbol,company))continue;
+            r.found++;
+            if(insertDeep(symbol,h))r.saved++;
+        }
+        return r;
+    }
+    public String resolveStock(String query){
+        String clean=query==null?"":query.trim();
+        for(String[] pair:UNIVERSE){
+            if(clean.equalsIgnoreCase(pair[0])||clean.equalsIgnoreCase(pair[1]))return pair[0];
+        }
+        return "";
     }
     public RefreshReport refresh() {
         RefreshReport report=new RefreshReport();
@@ -233,9 +288,14 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
                     if(publisher.isEmpty()&&title.contains(" - "))publisher=title.substring(title.lastIndexOf(" - ")+3);
                     String baseTitle=title;
                     if(title.endsWith(" - "+publisher))baseTitle=title.substring(0,title.length()-publisher.length()-3);
-                    String position=stance(baseTitle),published=iso(pub),source=origin(baseTitle,publisher);
-                    for(Mention m:findMentions(baseTitle))
-                        if(insert(m.symbol,baseTitle,publisher,link,published,position,source))out.inserted++;
+                    String published=iso(pub),source=origin(baseTitle,publisher);
+                    List<Mention> matches=findMentions(baseTitle);
+                    for(Mention m:matches){
+                        String position=matches.size()==1?
+                            ResearchRules.classify(baseTitle,m.symbol,m.name).direction:"WATCH";
+                        if(insert(m.symbol,baseTitle,publisher,link,published,position,source))
+                            out.inserted++;
+                    }
                 }
                 event=parser.next();
             }
@@ -261,10 +321,13 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
         JSONObject root=new JSONObject();JSONArray cards=new JSONArray();
         Map<String,List<News>> grouped=new HashMap<>();
         try(Cursor c=getReadableDatabase().rawQuery(
-          "SELECT symbol,title,publisher,url,published,stance,origin,captured FROM coverage WHERE published >= ? AND published != '' ORDER BY published DESC LIMIT 5000",
-          new String[]{LocalDate.now(ZoneOffset.UTC).minusDays(days-1).toString()})){
+          "SELECT symbol,title,publisher,url,published,stance,origin,captured,excerpt,query_label FROM coverage WHERE channel = 'NEWS' AND published >= ? AND published != '' ORDER BY published DESC LIMIT 5000",
+          new String[]{LocalDate.now(java.time.ZoneId.of("Asia/Kolkata")).minusDays(days-1)
+            .atStartOfDay(java.time.ZoneId.of("Asia/Kolkata"))
+            .withZoneSameInstant(ZoneOffset.UTC).toOffsetDateTime()
+            .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)})){
             while(c.moveToNext()){
-                News n=new News(c.getString(0),c.getString(1),c.getString(2),c.getString(3),c.getString(4),c.getString(5),c.getString(6),c.getString(7));
+                News n=new News(c.getString(0),c.getString(1),c.getString(2),c.getString(3),c.getString(4),c.getString(5),c.getString(6),c.getString(7),c.getString(8),c.getString(9));
                 if(!grouped.containsKey(n.symbol))grouped.put(n.symbol,new ArrayList<>());
                 grouped.get(n.symbol).add(n);
             }
@@ -293,13 +356,30 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
     private JSONArray indexedLeads(){
         JSONArray items=new JSONArray();
         try(Cursor c=getReadableDatabase().rawQuery(
-          "SELECT symbol,title,publisher,url,captured,channel FROM coverage WHERE channel != 'NEWS' ORDER BY captured DESC LIMIT 120",null)){
+          "SELECT symbol,title,publisher,url,captured,channel,excerpt,query_label FROM coverage WHERE channel != 'NEWS' ORDER BY captured DESC LIMIT 120",null)){
             while(c.moveToNext()){
                 JSONObject j=new JSONObject();
                 try{
                     j.put("symbol",c.getString(0));j.put("title",c.getString(1));j.put("publisher",c.getString(2));
-                    j.put("url",c.getString(3));j.put("indexedAt",c.getString(4));j.put("channel",c.getString(5));
-                    j.put("published","");j.put("note","Indexed lead: original date/author unverified. Excluded from confidence.");
+                    j.put("url",c.getString(3));j.put("indexedAt",c.getString(4));
+                    String ch=c.getString(5);
+                    j.put("channel",ch.startsWith("INDEX_")?ch.substring(6):ch);
+                    j.put("published","");j.put("excerpt",c.getString(6));j.put("queryLabel",c.getString(7));
+                    // These snippets have unverified original publication dates.
+                    // Never include extracted numbers in the confidence calculation.
+                    String symbol=c.getString(0);
+                    String title=c.getString(1),excerpt=c.getString(6);
+                    ResearchRules.Signal sig=ResearchRules.classify(title,symbol,symbolName(symbol));
+                    j.put("stance",sig.direction);
+                    String priceText=title;
+                    if(matchesSingleStock(title+" "+excerpt,symbol,symbolName(symbol)))priceText+="; "+excerpt;
+                    if(matchesSingleStock(title,symbol,symbolName(symbol))){
+                        TradeLevels.Levels levels=TradeLevels.extract(priceText,sig.direction);
+                        if(levels.entry!=null)j.put("entryPrice",levels.entry);
+                        if(levels.target!=null)j.put("targetPrice",levels.target);
+                        if(levels.stop!=null)j.put("stopLoss",levels.stop);
+                    }
+                    j.put("note","Indexed lead: original date/author unverified. Excluded from confidence.");
                 }catch(Exception ignored){}
                 items.put(j);
             }
@@ -319,7 +399,8 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
             seenTitles.add(titleKey);
             String origin=src.tier.equals("NAMED_BROKER")||src.tier.equals("BROKER_PUBLISHER")||src.tier.equals("NAMED_ANALYST")
                ?"identified:"+normalize(src.name):"publisher:"+normalize(n.publisher);
-            boolean eligible=signal.direction.equals("BUY")||signal.direction.equals("SELL");
+            boolean eligible=(signal.direction.equals("BUY")||signal.direction.equals("SELL"))
+                &&matchesSingleStock(n.title,symbol,symbolName(symbol));
             // An identical headline, or repeated content attributed to the same
             // original broker/publisher, can contribute at most one vote per stock.
             boolean counted=eligible&&!duplicate&&!independent.containsKey(origin);
@@ -328,13 +409,19 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
             if(evidence.length()<70){
                 JSONObject j=new JSONObject();
                 try{
-                    j.put("title",n.title);j.put("publisher",n.publisher);j.put("url",n.url);
+                    j.put("title",n.title);j.put("excerpt",n.excerpt);j.put("queryLabel",n.queryLabel);j.put("publisher",n.publisher);j.put("url",n.url);
                     j.put("published",n.published);j.put("captured",n.captured);
                     j.put("stance",signal.direction);j.put("reason",signal.reason);
                     j.put("counted",counted);j.put("sourceName",src.name);j.put("sourceTier",src.tier);
                     j.put("sourceWeight",src.weight);
-                    TradeLevels.Levels levels=TradeLevels.extract(n.title,signal.direction);
-                    if(counted&&levels.hasAny()&&findMentions(n.title).size()==1){
+                    // Parse the snippet only if it is short and does not mention a second
+                    // monitored company. A mixed multi-company article is unsafe.
+                    String priceText=n.title;
+                    if(n.excerpt!=null&&!n.excerpt.isEmpty()&&
+                       matchesSingleStock(n.title+" "+n.excerpt,symbol,symbolName(symbol)))
+                        priceText=n.title+"; "+n.excerpt;
+                    TradeLevels.Levels levels=TradeLevels.extract(priceText,signal.direction);
+                    if(counted&&levels.hasAny()&&matchesSingleStock(n.title,symbol,symbolName(symbol))){
                         if(levels.entry!=null)j.put("entryPrice",levels.entry);
                         if(levels.target!=null)j.put("targetPrice",levels.target);
                         if(levels.stop!=null)j.put("stopLoss",levels.stop);
@@ -345,12 +432,18 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
             }
         }
         int buy=0,sell=0,known=0,other=0,withLevels=0;
+        double ageQuality=0;
         double weightedBuy=0,weightedSell=0,quality=0;
         for(Ranked r:independent.values()){
             if(r.signal.direction.equals("BUY")){buy++;weightedBuy+=r.src.weight;}
             else{sell++;weightedSell+=r.src.weight;}
             if(r.src.tier.equals("OTHER"))other++;else known++;
             quality+=r.src.weight;
+            try{
+                long hours=java.time.Duration.between(
+                    OffsetDateTime.parse(r.news.published),OffsetDateTime.now(ZoneOffset.UTC)).toHours();
+                if(hours>=0)ageQuality+=Math.max(0.0,1.0-hours/(24.0*(windowDays+1)));
+            }catch(Exception ignored){}
             if(normalize(r.news.title).matches(".*\\b(target|stop loss|entry|upside|downside|rs [0-9]+)\\b.*"))withLevels++;
         }
         int count=buy+sell;
@@ -362,7 +455,7 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
         double sourceQuality=count==0?0:25.0*quality/count;
         // Every article was filtered into the requested age window; narrower
         // windows award more freshness credit than older weekly/monthly evidence.
-        double freshness=count==0?0:10.0*Math.max(0,1.0-(windowDays-1)/45.0);
+        double freshness=count==0?0:10.0*ageQuality/count;
         double directness=count==0?0:10.0; // direction is explicitly attributable near the stock name
         int confidence=count==0?0:(int)Math.round(agreement+diversity+sourceQuality+freshness+directness);
         confidence=Math.min(85,confidence);
@@ -404,9 +497,10 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
         Ranked(News n,ResearchRules.Source s,ResearchRules.Signal g){news=n;src=s;signal=g;}
     }
     private static final class News{
-        final String symbol,title,publisher,url,published,stance,origin,captured;
-        News(String s,String t,String p,String u,String d,String st,String org,String cap){
+        final String symbol,title,publisher,url,published,stance,origin,captured,excerpt,queryLabel;
+        News(String s,String t,String p,String u,String d,String st,String org,String cap,String desc,String query){
             symbol=s;title=t;publisher=p;url=u;published=d;stance=st;origin=org;captured=cap;
+            excerpt=desc==null?"":desc;queryLabel=query==null?"":query;
         }
     }
 }
