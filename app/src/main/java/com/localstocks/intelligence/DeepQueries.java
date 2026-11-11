@@ -51,6 +51,35 @@ public final class DeepQueries {
         add(result,used,"X_INDEX","BING",ticker+" site:twitter.com NSE target stop loss");
         add(result,used,"ANALYSTS","BING",quoted+" swing trade recommendation independent analyst");
         add(result,used,"BROKERAGES","BING",quoted+" \"buy\" \"target\" \"stop loss\" India");
+        // Group candidate publishers by category rather than dispatching 100+
+        // sequential network calls from the phone. Search-index providers may
+        // ignore some OR clauses; actual returned domain counts are audited.
+        java.util.Map<String,java.util.List<SourceDirectory.Site>> byCategory=new java.util.LinkedHashMap<>();
+        for(SourceDirectory.Site site:SourceDirectory.searchable()){
+            if(!byCategory.containsKey(site.category))
+                byCategory.put(site.category,new java.util.ArrayList<>());
+            byCategory.get(site.category).add(site);
+        }
+        for(java.util.Map.Entry<String,java.util.List<SourceDirectory.Site>> category:byCategory.entrySet()){
+            java.util.List<SourceDirectory.Site> sites=category.getValue();
+            for(int i=0;i<sites.size();i+=3){
+                StringBuilder q=new StringBuilder("(");
+                for(int j=i;j<Math.min(i+3,sites.size());j++){
+                    if(j>i)q.append(" OR ");
+                    q.append("site:").append(sites.get(j).host);
+                }
+                q.append(") ");
+                // Each query addresses up to three distinct candidate domains.
+                // This is index discovery, not direct site scraping.
+                q.append(quoted).append(" ");
+                q.append(category.getKey().equals("NEWS")
+                    ?"stocks recommendation analyst target"
+                    :category.getKey().equals("BROKERAGES")
+                        ?"buy sell entry target stop loss"
+                        :"research stock buy sell target");
+                add(result,used,category.getKey(),"BING",q.toString());
+            }
+        }
         return result;
     }
     private static void add(List<Query> out,LinkedHashSet<String> seen,String channel,String provider,String text){
