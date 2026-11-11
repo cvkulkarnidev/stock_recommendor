@@ -97,13 +97,13 @@ public final class BrokerageCallExtractor {
         if(s)return "SELL";
         return "WATCH";
     }
-    private static void put(Map<String,Call> calls,String institution,String direction,String evidence){
+    private static void put(Map<String,Call> calls,String institution,String direction,String evidence,boolean canAssignLevels){
         if(direction.equals("WATCH")||direction.equals("MIXED"))return;
         String k=norm(canonical(institution));
         if(calls.containsKey(k))return;
-        Double target=find(EXPLICIT_TARGET,evidence);
-        Double entry=find(SIMPLE_ENTRY,evidence);
-        Double stop=find(SIMPLE_STOP,evidence);
+        Double target=canAssignLevels?find(EXPLICIT_TARGET,evidence):null;
+        Double entry=canAssignLevels?find(SIMPLE_ENTRY,evidence):null;
+        Double stop=canAssignLevels?find(SIMPLE_STOP,evidence):null;
         // CMP is a reference quote, not a recommendation to enter at that price.
         if(entry!=null&&target!=null){
             if(direction.equals("BUY")&&target<=entry)target=null;
@@ -123,7 +123,7 @@ public final class BrokerageCallExtractor {
         boolean titleAboutStock=hasStock(head,symbol,company);
         // Headline roundups cannot lend a trade view on one stock to a different stock.
         boolean multiHeadline=head.matches("(?i).*(?:among\\s+[2-9]|and\\s+others|stocks\\s+to\\s+buy|share\\s+stock\\s+recommendations\\s+on|multiple\\s+stocks).*");
-        String text=(head+"; "+summary).replaceAll("\\s+"," ").trim();
+        String text=(head+"; "+summary).replaceAll("(?i)\\bRs\\.\\s*","Rs ").replaceAll("\\s+"," ").trim();
         String[] pieces=text.split("(?<=[.;])\\s+|\\n+");
         for(String piece:pieces){
             if(piece.length()<12)continue;
@@ -145,7 +145,7 @@ public final class BrokerageCallExtractor {
                 // or the single-stock headline directly state Buy or Sell.
                 boolean direct=ACTION.matcher(piece).find() || (stockHere&&names.size()==1);
                 if(!direct)continue;
-                put(result,name,direction,piece);
+                put(result,name,direction,piece,names.size()==1);
             }
         }
         // Structured pages with a single named original brokerage may use
@@ -154,7 +154,7 @@ public final class BrokerageCallExtractor {
             String direction=decide(head);
             if(direction.equals("BUY")||direction.equals("SELL")||direction.equals("HOLD")){
                 for(String name:INSTITUTIONS)if(hasPhrase(head,name)){
-                    put(result,name,direction,head);
+                    put(result,name,direction,head,true);
                     break;
                 }
             }
