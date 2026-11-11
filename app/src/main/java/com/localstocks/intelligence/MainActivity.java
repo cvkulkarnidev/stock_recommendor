@@ -24,6 +24,7 @@ public final class MainActivity extends Activity {
     private volatile String lastMessage="";
     private volatile String lastError="";
     private volatile boolean pageReady=false;
+    private volatile int windowDays=7;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override public void onCreate(Bundle state){
@@ -72,7 +73,8 @@ public final class MainActivity extends Activity {
         JSONObject payload=new JSONObject();
         try{
             payload.put("kind","snapshot");
-            payload.put("payload",discovery.snapshot());
+            payload.put("payload",discovery.snapshot(windowDays));
+            payload.put("lastRefresh",getPreferences(MODE_PRIVATE).getString("lastRefresh",""));
             payload.put("refreshing",refreshing.get());
             payload.put("message",lastMessage);
             payload.put("error",lastError);
@@ -95,13 +97,19 @@ public final class MainActivity extends Activity {
                 String result="Checked "+r.requests+" feed searches · "+r.articles+" headlines · "+r.inserted+" new stock mentions";
                 if(r.failures>0)result+=" · "+r.failures+" sources unavailable";
                 if(r.failures==r.requests)sendStatus(false,"All sources unavailable. Check internet/network permissions. "+(r.errors.isEmpty()?"":r.errors.get(0)),true);
-                else sendStatus(false,result,false);
+                else {
+                    getPreferences(MODE_PRIVATE).edit().putString("lastRefresh",java.time.OffsetDateTime.now(java.time.ZoneOffset.UTC).toString()).apply();
+                    sendStatus(false,result,false);
+                }
             }catch(Exception e){sendStatus(false,"Refresh failed: "+e.getMessage(),true);}
             finally{refreshing.set(false);sendSnapshot();}
         });
     }
     private final class Bridge {
         @JavascriptInterface public void load(){sendSnapshot();}
+        @JavascriptInterface public void setWindow(int days){
+            if(days==1||days==2||days==3||days==7||days==14||days==30){windowDays=days;sendSnapshot();}
+        }
         @JavascriptInterface public void refresh(){start(true,"");}
         @JavascriptInterface public void investigate(String symbol){
             String s=symbol==null?"":symbol.trim().toUpperCase(java.util.Locale.ROOT);
