@@ -199,7 +199,7 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
         return mentions.isEmpty()&&symbol.length()>=4&&mentionsDeepStock(text,symbol,company);
     }
     public static final class DeepReport {
-        public int queries,successes,found,saved,failures,candidateDomains,observedDomains,skipped;
+        public int queries,successes,found,saved,failures,candidateDomains,observedDomains,observedPublishers,skipped;
         public final java.util.List<String> errors=new java.util.ArrayList<>();
     }
     public DeepReport deepSearch(String symbol,String company){
@@ -207,14 +207,21 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
         DeepReport r=new DeepReport();
         r.queries=source.queries;r.successes=source.succeeded;
         r.candidateDomains=source.candidateDomains;
-        r.observedDomains=source.observedDomains;r.skipped=source.skipped;
+        r.skipped=source.skipped;
+        java.util.Set<String> matchedHosts=new java.util.HashSet<>();
+        java.util.Set<String> publishers=new java.util.HashSet<>();
         r.failures=source.queries-source.succeeded;
         r.errors.addAll(source.failures);
         for(DeepResearch.Hit h:source.hits){
             if(!mentionsDeepStock(h.title,symbol,company))continue;
             r.found++;
+            try{matchedHosts.add(new java.net.URL(h.url).getHost().toLowerCase(java.util.Locale.ROOT));}
+            catch(Exception ignored){}
+            if(h.publisher!=null&&!h.publisher.trim().isEmpty())publishers.add(h.publisher.trim().toLowerCase(java.util.Locale.ROOT));
             if(insertDeep(symbol,h))r.saved++;
         }
+        r.observedDomains=matchedHosts.size();
+        r.observedPublishers=publishers.size();
         return r;
     }
     public String resolveStock(String query){
