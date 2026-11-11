@@ -404,42 +404,91 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
         String newest="";
         for(News n:articles){
             ResearchRules.Source src=ResearchRules.source(n.title,n.publisher);
-            ResearchRules.Signal signal=ResearchRules.classify(n.title,symbol,symbolName(symbol));
+            ResearchRules.Signal fallback=ResearchRules.classify(n.title,symbol,symbolName(symbol));
             String titleKey=normalize(n.title).replaceAll("\\b(today|this week|tomorrow)\\b","").trim();
             boolean duplicate=seenTitles.contains(titleKey);
             seenTitles.add(titleKey);
-            String origin=src.tier.equals("NAMED_BROKER")||src.tier.equals("BROKER_PUBLISHER")||src.tier.equals("NAMED_ANALYST")
-               ?"identified:"+normalize(src.name):"publisher:"+normalize(n.publisher);
-            boolean eligible=(signal.direction.equals("BUY")||signal.direction.equals("SELL"))
-                &&matchesSingleStock(n.title,symbol,symbolName(symbol));
-            // An identical headline, or repeated content attributed to the same
-            // original broker/publisher, can contribute at most one vote per stock.
-            boolean counted=eligible&&!duplicate&&!independent.containsKey(origin);
-            if(counted)independent.put(origin,new Ranked(n,src,signal));
+            boolean counted=false;
+            JSONArray brokerageCalls=new JSONArray();
+            List<BrokerageCallExtractor.Call> parsed=BrokerageCallExtractor.extract(
+                n.title,n.excerpt,n.publisher,symbol,symbolName(symbol));
+            String mainDirection="WATCH";
+            boolean hasBuy=false,hasSell=false;
+            for(BrokerageCallExtractor.Call bc:parsed){
+                boolean analyst=false;
+                for(String person:ResearchRules.analysts())if(person.equalsIgnoreCase(bc.institution))analyst=true;
+                ResearchRules.Source realSource=new ResearchRules.Source(
+                    bc.institution,analyst?"NAMED_ANALYST":"NAMED_BROKER",analyst?0.85:0.92);
+                String key="identified:"+normalize(bc.institution);
+                boolean accepted=(bc.direction.equals("BUY")||bc.direction.equals("SELL"))
+                    &&!duplicate&&!independent.containsKey(key);
+                if(accepted){
+                    independent.put(key,new Ranked(n,realSource,
+                        new ResearchRules.Signal(bc.direction,"Attributed named brokerage/analyst call"),bc));
+                    counted=true;
+                }
+                if(bc.direction.equals("BUY"))hasBuy=true;
+                if(bc.direction.equals("SELL"))hasSell=true;
+                JSONObject item=new JSONObject();
+                try{
+                    item.put("institution",bc.institution);item.put("direction",bc.direction);
+                    item.put("counted",accepted);item.put("reason","Named institution explicitly associated with a rated recommendation");
+                    item.put("published",n.published);item.put("priceProvenance","Public headline/RSS excerpt, not independently checked against full report");
+                    if(bc.target!=null)item.put("targetPrice",bc.target);
+                    if(bc.entry!=null)item.put("entryPrice",bc.entry);
+                    if(bc.stop!=null)item.put("stopLoss",bc.stop);
+                }catch(Exception ignored){}
+                brokerageCalls.put(item);
+            }
+            if(hasBuy&&hasSell)mainDirection="MIXED";
+            else if(hasBuy)mainDirection="BUY";
+            else if(hasSell)mainDirection="SELL";
+            else if(!parsed.isEmpty())mainDirection="HOLD";
+            // When a named broker could not be extracted, accept only a
+            // single-stock, directional headline. NEVER count a generic news
+            // publisher as an independent research institution.
+            if(parsed.isEmpty() && matchesSingleStock(n.title,symbol,symbolName(symbol))
+                &&(src.tier.equals("NAMED_BROKER")||src.tier.equals("BROKER_PUBLISHER")||src.tier.equals("NAMED_ANALYST"))
+                &&(fallback.direction.equals("BUY")||fallback.direction.equals("SELL"))){
+                String key="identified:"+normalize(src.name);
+                if(!duplicate&&!independent.containsKey(key)){
+                    independent.put(key,new Ranked(n,src,fallback,null));
+                    counted=true;
+                }
+                mainDirection=fallback.direction;
+            }
             if(n.published!=null&&n.published.compareTo(newest)>0)newest=n.published;
             if(evidence.length()<70){
                 JSONObject j=new JSONObject();
                 try{
-                    j.put("title",n.title);j.put("excerpt",n.excerpt);j.put("queryLabel",n.queryLabel);j.put("publisher",n.publisher);j.put("url",n.url);
+                    j.put("title",n.title);j.put("excerpt",n.excerpt);j.put("queryLabel",n.queryLabel);
+                    j.put("publisher",n.publisher);j.put("url",n.url);
                     j.put("published",n.published);j.put("captured",n.captured);
-                    j.put("stance",signal.direction);j.put("reason",signal.reason);
-                    j.put("counted",counted);j.put("sourceName",src.name);j.put("sourceTier",src.tier);
-                    j.put("sourceWeight",src.weight);
-                    // Parse the snippet only if it is short and does not mention a second
-                    // monitored company. A mixed multi-company article is unsafe.
-                    String priceText=n.title;
-                    if(n.excerpt!=null&&!n.excerpt.isEmpty()&&
-                       matchesSingleStock(n.title+" "+n.excerpt,symbol,symbolName(symbol)))
-                        priceText=n.title+"; "+n.excerpt;
-                    TradeLevels.Levels levels=TradeLevels.extract(priceText,signal.direction);
-                    if(counted&&levels.hasAny()&&matchesSingleStock(n.title,symbol,symbolName(symbol))){
+                    j.put("stance",mainDirection);j.put("reason",parsed.isEmpty()?fallback.reason:
+                        "Extracted "+parsed.size()+" named brokerage/analyst opinion(s) from source text");
+                    j.put("counted",counted);j.put("sourceName",parsed.size()==1?
+                        parsed.get(0).institution:(parsed.size()>1?"Multiple named institutions":src.name));
+                    j.put("sourceTier",parsed.isEmpty()?src.tier:"NAMED_BROKER");
+                    j.put("sourceWeight",parsed.isEmpty()?src.weight:0.92);
+                    j.put("brokerageCalls",brokerageCalls);
+                    // Avoid an arbitrary price being assigned to the article
+                    // when multiple different brokerages express their own calls.
+                    if(parsed.size()==1 && counted){
+                        BrokerageCallExtractor.Call bc=parsed.get(0);
+                        if(bc.entry!=null)j.put("entryPrice",bc.entry);
+                        if(bc.target!=null)j.put("targetPrice",bc.target);
+                        if(bc.stop!=null)j.put("stopLoss",bc.stop);
+                        if(bc.entry!=null||bc.target!=null||bc.stop!=null)
+                            j.put("levelsSource","Attributed source title or public RSS excerpt");
+                    }else if(parsed.isEmpty() && counted){
+                        TradeLevels.Levels levels=TradeLevels.extract(n.title,fallback.direction);
                         if(levels.entry!=null)j.put("entryPrice",levels.entry);
                         if(levels.target!=null)j.put("targetPrice",levels.target);
                         if(levels.stop!=null)j.put("stopLoss",levels.stop);
-                        j.put("levelsSource","Explicit headline; confirm in original article");
                     }
                 }catch(Exception ignored){}
                 evidence.put(j);
+            }
             }
         }
         int buy=0,sell=0,known=0,other=0,withLevels=0;
@@ -455,7 +504,7 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
                     OffsetDateTime.parse(r.news.published),OffsetDateTime.now(ZoneOffset.UTC)).toHours();
                 if(hours>=0)ageQuality+=Math.max(0.0,1.0-hours/(24.0*(windowDays+1)));
             }catch(Exception ignored){}
-            if(normalize(r.news.title).matches(".*\\b(target|stop loss|entry|upside|downside|rs [0-9]+)\\b.*"))withLevels++;
+            if(r.call!=null && (r.call.target!=null||r.call.entry!=null||r.call.stop!=null))withLevels++;
         }
         int count=buy+sell;
         String direction=count==0?"WATCH":weightedBuy==weightedSell?"MIXED":weightedBuy>weightedSell?"BUY":"SELL";
@@ -481,6 +530,21 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
             o.put("recent",count);o.put("withLevels",withLevels);
             o.put("lastPublished",newest);o.put("windowDays",windowDays);
             o.put("evidence",evidence);
+            JSONArray verifiedInstitutions=new JSONArray();
+            for(Ranked rr:independent.values()){
+                JSONObject institution=new JSONObject();
+                institution.put("name",rr.src.name);institution.put("direction",rr.signal.direction);
+                institution.put("published",rr.news.published);
+                institution.put("articleUrl",rr.news.url);institution.put("sourcePublisher",rr.news.publisher);
+                institution.put("evidenceType","Named brokerage in public headline/RSS excerpt; original signed research not verified");
+                if(rr.call!=null){
+                    if(rr.call.target!=null)institution.put("targetPrice",rr.call.target);
+                    if(rr.call.entry!=null)institution.put("entryPrice",rr.call.entry);
+                    if(rr.call.stop!=null)institution.put("stopLoss",rr.call.stop);
+                }
+                verifiedInstitutions.put(institution);
+            }
+            o.put("institutionCalls",verifiedInstitutions);
             JSONObject firstLevels=new JSONObject();
             for(int i=0;i<evidence.length();i++){
                 JSONObject e=evidence.optJSONObject(i);
@@ -505,7 +569,10 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
     }
     private static final class Ranked{
         final News news;final ResearchRules.Source src;final ResearchRules.Signal signal;
-        Ranked(News n,ResearchRules.Source s,ResearchRules.Signal g){news=n;src=s;signal=g;}
+        final BrokerageCallExtractor.Call call;
+        Ranked(News n,ResearchRules.Source s,ResearchRules.Signal g,BrokerageCallExtractor.Call c){
+            news=n;src=s;signal=g;call=c;
+        }
     }
     private static final class News{
         final String symbol,title,publisher,url,published,stance,origin,captured,excerpt,queryLabel;
