@@ -64,7 +64,11 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
       "Indian midcap stocks buy recommendations analysts when:14d",
       "Indian largecap stocks brokerage upgrade downgrade when:14d",
       "NSE bank IT pharma stocks buy sell recommendation when:14d",
-      "Indian equity market technical stock picks for next week when:14d"
+      "Indian equity market technical stock picks for next week when:14d",
+      "Reliance HDFC Bank ICICI Bank SBI stock buy sell brokerage when:14d",
+      "Infosys TCS Wipro HCL Tech stock buy sell target when:14d",
+      "Tata Motors Maruti Suzuki Mahindra stock recommendation when:14d",
+      "HAL BEL Dixon Persistent Systems stock buy analysts when:14d"
     };
     public static final class RefreshReport {
         public int articles, inserted, failures, requests;
@@ -93,6 +97,14 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
             boolean tickerHit=symbol.length()>=4 && !symbol.equals("INDIGO") && containsPhrase(norm,symbol);
             // For named brands some common textual variants.
             if(symbol.equals("RELIANCE")) nameHit|=containsPhrase(norm,"reliance");
+            if(symbol.equals("SBIN")) nameHit|=containsPhrase(norm,"sbi shares")||containsPhrase(norm,"sbi stock")||containsPhrase(norm,"state bank of india");
+            if(symbol.equals("LT")) nameHit|=containsPhrase(norm,"l&t stock")||containsPhrase(norm,"larsen and toubro");
+            if(symbol.equals("HINDUNILVR")) nameHit|=containsPhrase(norm,"hul stock")||containsPhrase(norm,"hindustan unilever");
+            if(symbol.equals("BHARTIARTL")) nameHit|=containsPhrase(norm,"airtel shares")||containsPhrase(norm,"bharti airtel");
+            if(symbol.equals("BAJFINANCE")) nameHit|=containsPhrase(norm,"bajaj finance");
+            if(symbol.equals("JIOFIN")) nameHit|=containsPhrase(norm,"jio financial");
+            if(symbol.equals("MARUTI")) nameHit|=containsPhrase(norm,"maruti suzuki");
+
             if(symbol.equals("TATAMOTORS")) nameHit|=containsPhrase(norm,"tata motors");
             if(symbol.equals("HDFCBANK")) nameHit|=containsPhrase(norm,"hdfc bank");
             if(symbol.equals("ITC")) nameHit|=containsPhrase(norm,"itc shares")||containsPhrase(norm,"itc stock");
