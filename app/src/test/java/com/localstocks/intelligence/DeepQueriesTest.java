@@ -14,10 +14,17 @@ public class DeepQueriesTest {
             groups.add(item.channel);assertTrue(item.text.contains("HDFC Bank")||item.text.contains("HDFCBANK"));
             assertTrue(keys.add(item.provider+":"+item.text));
         }
-        assertEquals(25,q.size());
+        assertTrue("Should expand beyond 25 queries",q.size()>=50);
         assertTrue(groups.contains("BROKERAGES"));assertTrue(groups.contains("NEWS"));
         assertTrue(groups.contains("ANALYSTS"));assertTrue(groups.contains("REDDIT"));
         assertTrue(groups.contains("X_INDEX"));
+        Set<String> siteTargets=new HashSet<>();
+        java.util.regex.Pattern pattern=java.util.regex.Pattern.compile("site:([a-z0-9.-]+)");
+        for(DeepQueries.Query item:q){
+            java.util.regex.Matcher matcher=pattern.matcher(item.text);
+            while(matcher.find())siteTargets.add(matcher.group(1));
+        }
+        assertTrue("Should target 100+ distinct sites",siteTargets.size()>=100);
     }
     @Test public void invalidTickerIsRejected(){
         try{DeepQueries.build("../secret","Test");fail("Must reject path chars");}
