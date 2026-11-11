@@ -257,6 +257,7 @@ return '<div class="story"><div class="story-actions"><strong>'+esc(c.name)+'</s
 '<div class="two-col" style="grid-template-columns:repeat(3,1fr);margin:10px 0"><div class="statbox"><div class="lbl">Entry</div><div style="font-size:13px;font-weight:750">'+rupee(c.entryPrice)+'</div></div>'+
 '<div class="statbox"><div class="lbl">Target</div><div style="font-size:13px;font-weight:750;color:var(--green)">'+rupee(c.targetPrice)+'</div></div>'+
 '<div class="statbox"><div class="lbl">Stop-loss</div><div style="font-size:13px;font-weight:750;color:var(--red)">'+rupee(c.stopLoss)+'</div></div></div>'+
+(c.targetConflict?'<div class="notice" style="margin:8px 0;color:var(--red)">Conflicting target prices in this source. Target withheld pending original-report verification.</div>':'')+
 '<div class="small-note">Source: '+esc(c.sourcePublisher)+' · Published '+esc(dateText(c.published))+' · levels only if explicitly stated</div>'+
 '<button class="textlink" onclick="openSource(\''+encodeURIComponent(c.articleUrl)+'\')">Read attributable coverage ↗</button></div>';
 }).join(""):'<p class="small-note">No sufficiently attributable brokerage calls found. Use Deep Search for more coverage.</p>')+'</div>'+
