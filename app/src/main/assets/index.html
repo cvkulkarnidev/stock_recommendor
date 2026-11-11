@@ -269,7 +269,7 @@ var grouped={REDDIT:[],X_INDEX:[],INDEPENDENT:[],ANALYSTS:[],BROKERAGES:[]};
 });
 var sections=[["REDDIT","Reddit indexed discussions"],["X_INDEX","X / Twitter indexed posts"],["INDEPENDENT","Independent analyst index results"],["ANALYSTS","Named analyst index results"],["BROKERAGES","Brokerage index results"]];
 return '<div class="title-row"><div><div class="section-title">Public search-index results</div><div class="section-caption">Free discovery · not direct Reddit/X APIs</div></div></div>'+
-'<div class="search-wrap"><input style="padding-left:14px" placeholder="Filter indexed results by NSE symbol (optional)" value="'+esc(state.indexedFilter)+'" oninput="state.indexedFilter=this.value.toUpperCase();drawIndexedSections()"></div>'+
+'<div class="search-wrap"><input style="padding-left:14px" placeholder="Filter indexed results by NSE symbol (optional)" value="'+esc(state.indexedFilter)+'" oninput="state.indexedFilter=this.value.toUpperCase()" onkeydown="if(event.key===\'Enter\')draw()"></div><button class="outline" style="margin-bottom:12px" onclick="draw()">Apply filter</button>'+
 '<div id="indexedContent"><div class="notice">These are links found in a free search-engine index. Original post timestamps and author identity are not verified, so they <b>do not inflate trade confidence</b>. The original platform may require a login. No restricted scraping is used.</div>'+
 sections.map(function(pair){var list=grouped[pair[0]];return '<div class="detail-section"><div class="split"><h3>'+pair[1]+'</h3><span class="tag">'+list.length+' results</span></div>'+
 (list.length?list.slice(0,35).map(function(n){
