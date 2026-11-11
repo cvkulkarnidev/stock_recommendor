@@ -129,7 +129,7 @@ header{padding:22px 0 17px;display:flex;align-items:center;justify-content:space
 <div class="bottom-nav"><div class="nav-content" id="navbar"></div></div>
 <script>
 "use strict";
-var state={stocks:[],universe:0,updated:"",refreshing:false,message:"",error:"",tab:"Explore",filter:"All",query:"",detail:null,watch:[],dataReceived:false};
+var state={stocks:[],universe:0,updated:"",refreshing:false,message:"",error:"",tab:"Explore",filter:"All",query:"",detail:null,watch:[],dataReceived:false,windowDays:7,curatedBrokers:[],curatedPublishers:[]};
 try{state.watch=JSON.parse(localStorage.getItem("watchlist")||"[]");}catch(e){state.watch=[];}
 function esc(v){return String(v===null||v===undefined?"":v).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]});}
 function dateText(s){if(!s)return "Date not supplied";var d=new Date(s);if(isNaN(d.getTime()))return s.slice(0,10);return d.toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"});}
@@ -139,6 +139,7 @@ function formatAgo(iso){if(!iso)return "Never";var delta=Math.max(0,Date.now()-n
 function appBack(){if(state.detail){state.detail=null;draw();return;}if(state.tab!=="Explore"){state.tab="Explore";draw();}}
 function tabTo(x){state.tab=x;state.detail=null;state.filter="All";state.query="";draw();}
 function filterTo(x){state.filter=x;draw();}
+function timeTo(x){state.windowDays=x;if(window.StockNative)StockNative.setWindow(x);draw();}
 function queryTo(q){state.query=q;drawListOnly();}
 function openStock(s){state.detail=s;draw();window.scrollTo(0,0);}
 function refresh(){if(state.refreshing)return;if(window.StockNative){state.refreshing=true;state.message="Searching public market coverage…";state.error="";draw();StockNative.refresh();}}
@@ -147,7 +148,7 @@ function openSource(encoded){try{var url=decodeURIComponent(encoded);if(url.star
 function saveWatch(symbol){var i=state.watch.indexOf(symbol);if(i<0)state.watch.push(symbol);else state.watch.splice(i,1);try{localStorage.setItem("watchlist",JSON.stringify(state.watch));}catch(e){}draw();}
 function receiveNative(message){try{
 var msg=JSON.parse(message);
-if(msg.kind==="snapshot"){var d=msg.payload||{};state.stocks=d.stocks||[];state.updated=d.updated||"";state.universe=d.universe||0;state.dataReceived=true;}
+if(msg.kind==="snapshot"){var d=msg.payload||{};state.stocks=d.stocks||[];state.updated=msg.lastRefresh||"";state.windowDays=d.windowDays||state.windowDays;state.universe=d.universe||0;state.curatedBrokers=d.curatedBrokers||[];state.curatedPublishers=d.curatedPublishers||[];state.dataReceived=true;}
 state.refreshing=!!msg.refreshing;state.message=msg.message||"";state.error=msg.error||"";
 if(state.detail&&!state.stocks.some(function(x){return x.symbol===state.detail;}))state.detail=null;
 draw();
@@ -178,14 +179,15 @@ return '<article class="stock-card" onclick="openStock(\''+esc(x.symbol)+'\')"><
 '<div style="display:flex;align-items:center;gap:11px;min-width:0"><div class="ticker-logo">'+esc(x.symbol.substring(0,2))+'</div><div style="min-width:0"><div class="ticker-title">'+esc(x.symbol)+'</div><div class="company">'+esc(x.name)+'</div></div></div>'+badge(x.direction)+'</div>'+
 '<div class="evidence-grid"><div><div class="conf-label">Evidence confidence</div><div class="conf-value"><strong>'+x.confidence+'</strong><span>/100</span></div><div class="bar"><div style="width:'+pct+'%"></div></div></div>'+
 '<div><div class="conf-label">Grouped source signals</div><div class="source-count">'+agree+'</div><div class="signal-meter"><span class="green"><i class="dot" style="background:var(--green)"></i>'+x.buy+' Buy</span><span class="red"><i class="dot" style="background:var(--red)"></i>'+x.sell+' Sell</span></div></div></div>'+
-'<div class="card-foot"><span>'+x.coverage+' articles · '+x.recent+' recent signal(s)</span><span class="foot-more">View evidence ›</span></div></article>';
+'<div class="card-foot"><span>'+x.curatedSources+' curated · '+x.otherSources+' other<br>Latest: '+esc(dateText(x.lastPublished))+'</span><span class="foot-more">View evidence ›</span></div></article>';
 }
+function timeFilters(){var choices=[[1,"Today"],[2,"2 days"],[3,"3 days"],[7,"7 days"],[14,"14 days"],[30,"30 days"]];return '<div style="margin:0 0 8px"><div class="conf-label" style="margin-bottom:7px">PUBLICATION WINDOW · RE-SCORE BY AGE</div><div class="chips">'+choices.map(function(x){return '<button class="chip '+(state.windowDays===x[0]?'active':'')+'" onclick="timeTo('+x[0]+')">'+x[1]+'</button>';}).join("")+'</div></div>';}
 function listSection(){
 var stocks=currentStocks(), filters=["All","BUY","SELL","MIXED","WATCH"];
 return '<div class="title-row"><div><div class="section-title">'+(state.tab==="Saved"?"Saved watchlist":"Discovered stocks")+'</div>'+
-'<div class="section-caption">Ranked by publicly observable evidence, not expected returns</div></div><div class="count">'+stocks.length+' results</div></div>'+
+'<div class="section-caption">Ranked using dated research, source trust and independent agreement</div></div><div class="count">'+stocks.length+' results</div></div>'+
 '<div class="search-wrap"><svg viewBox="0 0 24 24"><circle cx="10.7" cy="10.7" r="6.3"/><path d="m16 16 5 5"/></svg><input id="stockSearch" placeholder="Search symbol or company" oninput="queryTo(this.value)" value="'+esc(state.query)+'"></div>'+
-'<div class="chips">'+filters.map(function(f){return '<button class="chip '+(f===state.filter?'active':'')+'" onclick="filterTo(\''+f+'\')">'+(f==="All"?"All signals":f)+"</button>";}).join("")+'</div>'+
+'<div class="chips">'+filters.map(function(f){return '<button class="chip '+(f===state.filter?'active':'')+'" onclick="filterTo(\''+f+'\')">'+(f==="All"?"All signals":f)+"</button>";}).join("")+'</div>'+timeFilters()+
 '<div id="stockList">'+listContent(stocks)+'</div>';
 }
 function listContent(stocks){
@@ -205,12 +207,13 @@ if(!x)return '';
 var saved=state.watch.indexOf(x.symbol)>=0;
 return '<div class="detail-head"><button class="back" onclick="appBack()">‹ Back</button><div><div class="detail-title">'+esc(x.symbol)+'</div><div class="detail-sub">'+esc(x.name)+'</div></div></div>'+
 '<div class="detail-section"><div class="split"><div><div class="eyebrow">Evidence classification</div><div style="margin-top:10px">'+badge(x.direction)+'</div></div><button class="outline" onclick="saveWatch(\''+esc(x.symbol)+'\')">'+(saved?"★ Saved":"☆ Save")+'</button></div>'+
-'<div class="two-col"><div class="statbox"><div class="num">'+x.confidence+'<span class="muted" style="font-size:12px">/100</span></div><div class="lbl">Provisional evidence score</div></div><div class="statbox"><div class="num">'+x.sources+'</div><div class="lbl">Grouped directional sources</div></div>'+
+'<div class="small-note" style="margin-top:13px">Latest published source: '+esc(dateText(x.lastPublished))+' · Last successful refresh: '+esc(state.updated?dateText(state.updated):"Never")+' · Window: '+x.windowDays+' day(s)</div>'+
+'<div class="two-col"><div class="statbox"><div class="num">'+x.confidence+'<span class="muted" style="font-size:12px">/100</span></div><div class="lbl">Provisional evidence score (max 85)</div></div><div class="statbox"><div class="num">'+x.sources+'</div><div class="lbl">Grouped directional sources</div></div>'+
 '<div class="statbox"><div class="num green">'+x.buy+'</div><div class="lbl">Supporting BUY opinions</div></div><div class="statbox"><div class="num red">'+x.sell+'</div><div class="lbl">Supporting SELL opinions</div></div></div>'+
 '<p class="small-note">'+esc(x.explanation)+'</p>'+
 '<button class="primary" style="width:100%;margin-top:8px" '+(state.refreshing?'disabled':'')+' onclick="investigate(\''+esc(x.symbol)+'\')">⌕ &nbsp; Investigate this stock further</button>'+
 '</div>'+statusHtml()+
-'<div class="notice">This is <b>strength of observable headline evidence</b>, not a probability of profit or a verified analyst win rate. Headlines can omit conditions and change meaning; always open original research. No entry, target, or stop-loss is inferred from a headline.</div>'+
+'<div class="notice">Confidence is <b>source-weighted, stock-linked headline evidence</b>, not a likelihood of profit. Curated means a known source name, not an audited successful analyst. BUY/SELL terms must appear close to the named stock; ambiguous discussions remain WATCH. Review the original report before acting.</div>'+
 '<div class="detail-section"><div class="split"><h3>Source evidence</h3><span class="tag">'+x.coverage+' articles</span></div>'+
 x.evidence.map(function(n){
 return '<div class="story"><div class="story-actions"><span class="pill-small '+n.stance.toLowerCase()+'">'+esc(n.stance)+'</span><span class="small-note">'+(n.counted?"Counted in score":"Context / duplicate / non-directional")+'</span></div>'+
@@ -225,14 +228,16 @@ state.stocks.forEach(function(stock){
 });
 var rows=Object.keys(publishers).map(function(k){return {name:k,articles:publishers[k].articles,stocks:publishers[k].stocks.length}}).sort(function(a,b){return b.articles-a.articles});
 return '<div class="title-row"><div><div class="section-title">Source coverage</div><div class="section-caption">Public articles discovered via RSS search</div></div></div>'+
-'<div class="notice">These are publishers of discovered stories, <b>not</b> independently audited trading analysts. Reposted brokerage opinions are grouped conservatively when identifiable. There is no claimed historical win rate.</div>'+
+'<div class="notice">Curated identifies recognizable institutional or editorial source names—not independently authenticated reports or successful analysts. Unknown publishers still contribute at lower weight. The app links to original coverage for review.</div>'+
+'<div class="detail-section"><h3>Curated brokerages ('+state.curatedBrokers.length+')</h3><p class="small-note">'+esc(state.curatedBrokers.join(" · "))+'</p></div>'+
+'<div class="detail-section"><h3>Curated financial publishers ('+state.curatedPublishers.length+')</h3><p class="small-note">'+esc(state.curatedPublishers.join(" · "))+'</p></div>'+
 '<div class="detail-section"><h3>Observed publishers</h3>'+
 (rows.length?rows.map(function(x){return '<div class="publisher-row"><div>'+esc(x.name)+'<div class="small-note">'+x.stocks+' tracked stock(s)</div></div><span class="tag">'+x.articles+' articles</span></div>'}).join(""):'<p class="small-note">Refresh the market to populate publishers.</p>')+'</div>';
 }
 function aboutPage(){
 return '<div class="title-row"><div><div class="section-title">How this works</div><div class="section-caption">Transparent, offline-first stock research</div></div></div>'+
-'<div class="detail-section"><h3>What Refresh does</h3><p class="small-note">Searches 10 broad Indian-financial-news RSS queries, then investigates up to 8 of the most mentioned directional stock candidates. It scans a built-in initial universe of '+state.universe+' recognizable Indian equities. All processing and storage run on your phone.</p></div>'+
-'<div class="detail-section"><h3>Evidence scoring / 100</h3><p class="small-note">Directional agreement (up to 25), distinct apparent research origins (up to 20), recent published signals (up to 15), and headlines mentioning price-level context (up to 10). The maximum is deliberately <b>70/100</b> until verified analyst outcomes and independently audited underlying research are available.</p>'+
+'<div class="detail-section"><h3>What Refresh does</h3><p class="small-note">Searches 14 Indian-financial-news RSS queries, then investigates up to 8 of the most mentioned directional stock candidates. It scans an initial universe of '+state.universe+' recognizable Indian equities. Select Today, 2, 3, 7, 14 or 30 days to filter by original article publication date. A separate saved timestamp records the latest successful data refresh.</p></div>'+
+'<div class="detail-section"><h3>Evidence scoring / 100</h3><p class="small-note">Directional agreement (up to 20), independent research origins (up to 20), curated-source quality (up to 25), freshness (up to 10), and explicit stock-linked headline direction (up to 10). Maximum <b>85/100</b> pending audited real performance. Choose a publication window (1, 2, 3, 7, 14 or 30 days) to completely recalculate results using only recent evidence.</p>'+
 '<p class="small-note">Same-origin sources and identical syndicated headlines do not increase the score. Conflicting and neutral coverage remains visible. A headline is not an executed trade. “BUY” and “SELL” reflect explicit words in published headlines, not the app issuing trade advice.</p></div>'+
 '<div class="detail-section"><h3>Privacy and cost</h3><p class="small-note">No account, backend, cloud database, API key, or subscription. Data remains in local SQLite; watchlists remain on-device. Manual refresh uses public Google News RSS search. Availability and publication terms are controlled by the provider. The app does not bypass site restrictions or collect full paywalled articles.</p></div>'+
 '<div class="detail-section"><h3>Known limitations</h3><p class="small-note">Not a comprehensive market crawl; some symbols, nicknames, and research notes will be missed. RSS is an aggregator and original research authorship is not always known. Headlines can be ambiguous or inaccurate. No live NSE prices, target prices, automatic buy/sell execution, historical win rates, or verified return forecasts are provided in this release.</p></div>'+
