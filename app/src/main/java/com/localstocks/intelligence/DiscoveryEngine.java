@@ -458,6 +458,7 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
                     item.put("institution",bc.institution);item.put("direction",bc.direction);
                     item.put("counted",accepted);item.put("reason","Named institution explicitly associated with a rated recommendation");
                     item.put("published",n.published);item.put("priceProvenance","Public headline/RSS excerpt, not independently checked against full report");
+                    if(bc.conflictingTarget)item.put("targetConflict",true);
                     if(bc.target!=null)item.put("targetPrice",bc.target);
                     if(bc.entry!=null)item.put("entryPrice",bc.entry);
                     if(bc.stop!=null)item.put("stopLoss",bc.stop);
@@ -499,6 +500,7 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
                     // when multiple different brokerages express their own calls.
                     if(parsed.size()==1 && counted){
                         BrokerageCallExtractor.Call bc=parsed.get(0);
+                        if(bc.conflictingTarget)j.put("targetConflict",true);
                         if(bc.entry!=null)j.put("entryPrice",bc.entry);
                         if(bc.target!=null)j.put("targetPrice",bc.target);
                         if(bc.stop!=null)j.put("stopLoss",bc.stop);
@@ -561,6 +563,7 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
                 institution.put("articleUrl",rr.news.url);institution.put("sourcePublisher",rr.news.publisher);
                 institution.put("evidenceType","Named brokerage in public headline/RSS excerpt; original signed research not verified");
                 if(rr.call!=null){
+                    if(rr.call.conflictingTarget)institution.put("targetConflict",true);
                     if(rr.call.target!=null)institution.put("targetPrice",rr.call.target);
                     if(rr.call.entry!=null)institution.put("entryPrice",rr.call.entry);
                     if(rr.call.stop!=null)institution.put("stopLoss",rr.call.stop);
