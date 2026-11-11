@@ -20,7 +20,7 @@ public final class TradeLevels {
     }
     private static final String NUM="([0-9]{1,3}(?:,[0-9]{3})+(?:\\.[0-9]{1,2})?|[0-9]{2,6}(?:\\.[0-9]{1,2})?)";
     private static final String CUR="(?:₹\\s*|Rs\\.?\\s*|INR\\s*)";
-    private static final String PRICE="(?:"+CUR+")?"+NUM+"(?![0-9.,%])";
+    private static final String PRICE="(?:"+CUR+")?"+NUM+"(?![0-9%])";
     private static final Pattern FIGURE=Pattern.compile(PRICE,Pattern.CASE_INSENSITIVE);
     private static final String TARGET="(?:target(?:s| price)?|price target|tgt|tp\\b|objective)";
     private static final String STOP="(?:stop[\\s-]?loss|stoploss|s\\s*/\\s*l|sl\\b)";
