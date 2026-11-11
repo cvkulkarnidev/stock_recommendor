@@ -1,4 +1,4 @@
-# Stock Intelligence — Android v0.3
+# Stock Intelligence — Android v0.4
 
 A **local-first, discovery-first Android research app for Indian stocks**. You do not need to enter a stock to begin. Press **Refresh market** and the phone searches public financial-news RSS coverage, extracts stock mentions, classifies explicit directional headlines, performs secondary stock-specific searches, and ranks a monitored NSE universe.
 
@@ -14,7 +14,7 @@ A **local-first, discovery-first Android research app for Indian stocks**. You d
 
 ## What this build includes
 
-- **Discover on first launch**: press **Refresh market**, no manual stock entry needed. Runs 18 topical/sector public RSS searches and follows up on up to 8 named candidate stocks (26 network queries maximum for the full initial scan).
+- **Discover on first launch**: press **Refresh market**, no manual stock entry needed. Runs 23 topical/sector public RSS searches and follows up on up to 8 named candidate stocks (42 network searches maximum (23 topical/analyst Google News RSS + up to 8 stock follow-ups + 11 search-index queries) for the full initial scan).
 - **Stock cards**: searchable ranked results with directional BUY / SELL / MIXED / WATCH classification, provisional evidence score, buy/sell source counts, and article count.
 - **Detailed research**: all included article headlines, publisher, publication timestamp (when supplied), link, inclusion status, and clear rationale. Tap **Investigate this stock further** for two more targeted manual searches.
 - **Confidence**: directional agreement 20 points, independently grouped origins 20, curated source weight 25, freshness 10, explicit stock-attributed direction 10. Maximum is 85/100 because audited historical outcomes are unavailable. Same-origin publishers and identical headline syndications are conservatively grouped. Unclear articles remain WATCH.
@@ -51,3 +51,13 @@ Open the project in Android Studio or run `gradle :app:assembleDebug` after inst
 For personal research only. **Do not trade based solely on these signals.**
 
 CI includes the recommendation classification unit tests before APK packaging.
+
+## Free social, analyst and trade-level discovery (v0.4)
+
+- Free **Bing RSS public search-index** queries for Reddit, X/Twitter, and named independent analysts (Sumeet Bagadia, Ganesh Dongre, Shiju Koothupalakkal, Raja Venkatraman, Vaishali Parekh).
+- No Reddit/X account, official API, paid API, login bypass or direct scraping. Indexed social results are shown under a dedicated **Indexed** tab, source-linked and unscored because the original post's publication date and identity usually cannot be independently verified from search-index metadata. Search results can be absent; availability is not guaranteed. Failure counts are reported during refresh.
+- The normal dated Google News RSS channel also searches individual analysts' named recommendations. These can count as dated headline evidence once identified and conservatively deduplicated, not as audited trades.
+- Exact explicitly labelled prices, such as `Buy at ₹1,200`, `target Rs 1,350` and `stop-loss ₹1,150`, are extracted from source headlines when the recommendation's direction is attributable to a single named stock. Prices are linked to the **source where they appeared**, not invented or averaged. Missing prices remain **Not specified**. Contradictory targets or stop-losses relative to entry are withheld. The extractor does not claim to parse full paid brokerage reports.
+- The stock cards and details show per-source price levels wherever found; do not trade without opening the source and confirming validity and publication time. Social index-only results do not receive historical-trade confidence.
+- Build CI now runs `TradeLevelsTest` and `ResearchRulesTest` prior to APK compilation.
+
