@@ -94,6 +94,17 @@ public class BrokerageCallExtractorTest {
           "Moneycontrol","HINDALCO","Hindalco Industries");
         assertTrue(r.isEmpty());
     }
+    @Test public void bylinedKotakResearchExtractsFairValueNotEntry(){
+        List<BrokerageCallExtractor.Call> calls=BrokerageCallExtractor.extract(
+          "Hindalco, Airtel among 2 stock recommendations by Kotak's Shrikant Chouhan",
+          "Hindalco Industries Ltd (HNDL) – BUY CMP – 960 FV – 1,200. "+
+          "Bharti Airtel – BUY CMP – 2100 FV – 2400.",
+          "Business Standard","HINDALCO","Hindalco Industries");
+        assertNotNull(get(calls,"Shrikant Chouhan"));
+        assertEquals("BUY",get(calls,"Shrikant Chouhan").direction);
+        assertEquals(1200.0,get(calls,"Shrikant Chouhan").target,0.01);
+        assertNull(get(calls,"Shrikant Chouhan").entry);
+    }
     @Test public void contradictoryHeadlineAndExcerptTargetIsWithheld(){
         // Real-world class of issue: headline says target 1204 while body says 1200.
         List<BrokerageCallExtractor.Call> r=BrokerageCallExtractor.extract(
