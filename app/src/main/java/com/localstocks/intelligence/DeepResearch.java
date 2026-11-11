@@ -12,6 +12,8 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.HashSet;
 import java.util.Locale;
 
 /** Searches free, publicly exposed RSS metadata and excerpts only. */
@@ -28,21 +30,30 @@ public final class DeepResearch {
         public final List<String> failures=new ArrayList<>();
         public int queries=0,succeeded=0;
         public int google=0,bing=0;
+        public int candidateDomains=0;
+        public int observedDomains=0;
+        public int skipped=0;
+        public final Set<String> observedHosts=new HashSet<>();
     }
     public static Report run(String symbol,String company){
         Report report=new Report();
         List<DeepQueries.Query> queries=DeepQueries.build(symbol,company);
+        report.candidateDomains=SourceDirectory.searchable().size();
+        int consecutiveIndexFailures=0;
         for(DeepQueries.Query q:queries){
             report.queries++;
             try{
                 fetch(q,report);
                 report.succeeded++;
                 if(q.provider.equals("GOOGLE"))report.google++;else report.bing++;
+                consecutiveIndexFailures=0;
             }catch(Exception e){
                 if(report.failures.size()<15)
                     report.failures.add(q.channel+"/"+q.provider+": "+e.getClass().getSimpleName());
+                if(q.provider.equals("BING"))consecutiveIndexFailures++;
             }
         }
+        report.observedDomains=report.observedHosts.size();
         return report;
     }
     private static String iso(String input){
@@ -109,6 +120,8 @@ public final class DeepResearch {
                         String published=q.provider.equals("GOOGLE")?iso(date):"";
                         r.hits.add(new Hit(q.channel,q.provider,q.text,
                             clean(title),clean(description),link,publisher,published));
+                        try{r.observedHosts.add(new URL(link).getHost().toLowerCase(Locale.ROOT));}
+                        catch(Exception ignored){}
                     }
                 }
                 event=parser.next();
