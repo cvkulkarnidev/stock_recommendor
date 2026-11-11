@@ -83,6 +83,18 @@ public final class ResearchRules {
         return new String[]{name,symbol.length()>3?symbol+" stock":name};
     }
     public static Signal classify(String headline,String symbol,String company){
+        // Different clauses can describe different companies or positions.
+        // Never inherit a BUY/SELL from an unrelated clause of a roundup.
+        if(headline.contains(";")){
+            for(String part:headline.split(";")){
+                String n=norm(part);
+                for(String alias:aliases(symbol,company)){
+                    if(norm(alias).length()>=4&&phrase(n,alias))
+                        return classify(part,symbol,company);
+                }
+            }
+            return new Signal("WATCH","No stock-specific direction in separate clauses");
+        }
         String t=norm(headline);
         // Stock-list headlines without explicit analyst attribution are only leads.
         if((t.contains("stocks to buy")||t.contains("stock picks")||t.contains("top picks"))
