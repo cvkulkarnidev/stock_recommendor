@@ -94,6 +94,17 @@ public class BrokerageCallExtractorTest {
           "Moneycontrol","HINDALCO","Hindalco Industries");
         assertTrue(r.isEmpty());
     }
+    @Test public void contradictoryHeadlineAndExcerptTargetIsWithheld(){
+        // Real-world class of issue: headline says target 1204 while body says 1200.
+        List<BrokerageCallExtractor.Call> r=BrokerageCallExtractor.extract(
+          "Buy Hindalco Industries: target of Rs 1204: ICICI Securities",
+          "ICICI Securities recommended BUY on Hindalco Industries with a target price of Rs 1,200.",
+          "Moneycontrol","HINDALCO","Hindalco Industries");
+        assertNotNull(get(r,"ICICI"));
+        assertEquals("BUY",get(r,"ICICI").direction);
+        assertTrue(get(r,"ICICI").conflictingTarget);
+        assertNull(get(r,"ICICI").target);
+    }
     @Test public void historicalAndRevisedTargetsKeepNewTarget(){
         List<BrokerageCallExtractor.Call> r=BrokerageCallExtractor.extract(
           "Hindalco shares rise after results",
