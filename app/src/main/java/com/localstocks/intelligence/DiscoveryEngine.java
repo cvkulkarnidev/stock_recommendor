@@ -199,13 +199,15 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
         return mentions.isEmpty()&&symbol.length()>=4&&mentionsDeepStock(text,symbol,company);
     }
     public static final class DeepReport {
-        public int queries,successes,found,saved,failures;
+        public int queries,successes,found,saved,failures,candidateDomains,observedDomains,skipped;
         public final java.util.List<String> errors=new java.util.ArrayList<>();
     }
     public DeepReport deepSearch(String symbol,String company){
         DeepResearch.Report source=DeepResearch.run(symbol,company);
         DeepReport r=new DeepReport();
         r.queries=source.queries;r.successes=source.succeeded;
+        r.candidateDomains=source.candidateDomains;
+        r.observedDomains=source.observedDomains;r.skipped=source.skipped;
         r.failures=source.queries-source.succeeded;
         r.errors.addAll(source.failures);
         for(DeepResearch.Hit h:source.hits){
