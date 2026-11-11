@@ -37,7 +37,7 @@ public final class BrokerageCallExtractor {
       "Choice Broking","Prabhudas Lilladher","Sharekhan","Emkay",
       "JM Financial","HSBC","Bernstein","Investec","IIFL Securities",
       "Sumeet Bagadia","Ganesh Dongre","Shiju Koothupalakkal","Raja Venkatraman",
-      "Vaishali Parekh"
+      "Vaishali Parekh","Shrikant Chouhan"
     };
     private static final Pattern BUY=Pattern.compile(
       "(?i)\\b(?:buy(?:ing)?|accumulate|outperform|overweight|add rating|upgrad(?:ed|e|es)\\s+(?:the\\s+stock\\s+)?to\\s+buy)\\b");
@@ -48,7 +48,7 @@ public final class BrokerageCallExtractor {
     private static final Pattern ACTION=Pattern.compile(
       "(?i)\\b(?:rated|rates|rating|reiterat(?:e|es|ed|ing)|maintain(?:s|ed)?|retain(?:s|ed)?|recommend(?:s|ed)?|upgrad(?:e|ed|es)|downgrad(?:e|ed|es)|initiates?|call|advises?)\\b");
     private static final Pattern EXPLICIT_TARGET=Pattern.compile(
-      "(?i)\\b(?:target(?:\\s+price)?|tp|fair\\s+value|fv)\\s*(?:of|at|to|\\:|-|is|near)?\\s*(?:₹|rs\\.?|inr)?\\s*([1-9][0-9,]{1,7}(?:\\.[0-9]{1,2})?)");
+      "(?i)\\b(?:target(?:\\s+price)?|tp|fair\\s+value|fv)\\s*(?:of|at|to|\\:|-|is|near|–|—)?\\s*(?:₹|rs\\.?|inr)?\\s*([1-9][0-9,]{1,7}(?:\\.[0-9]{1,2})?)");
     private static final Pattern CURRENT_PRICE=Pattern.compile(
       "(?i)\\b(?:cmp|current\\s+market\\s+price|ltp)\\s*[-:]?\\s*(?:₹|rs\\.?|inr)?\\s*([1-9][0-9,]{1,7}(?:\\.[0-9]{1,2})?)");
     private static final Pattern SIMPLE_ENTRY=Pattern.compile(
@@ -156,11 +156,24 @@ public final class BrokerageCallExtractor {
                 String canonical=canonical(institution);
                 if(!names.contains(canonical))names.add(canonical);
             }
+            // A clearly bylined analyst can issue multiple separate
+            // stock-specific calls in one article ("Hindalco, Airtel ... by X").
+            // Attribute only a paragraph that names the requested stock.
+            boolean fromByline=false;
+            if(names.isEmpty()&&stockHere){
+                for(String person:ResearchRules.analysts()){
+                    String bylinePattern="(?i).*\\bby\\b.{0,40}"+
+                        Pattern.quote(person)+".*";
+                    if(head.matches(bylinePattern)){
+                        names.add(person);fromByline=true;break;
+                    }
+                }
+            }
             // Only attribute broker groups when the same recommendation/rating
             // clause addresses those institutions. Otherwise too ambiguous.
             for(String name:names) {
                 int index=norm(piece).indexOf(norm(name));
-                if(index<0)continue;
+                if(index<0&&!fromByline)continue;
                 // Source text must describe an actual rating/recommendation,
                 // or the single-stock headline directly state Buy or Sell.
                 boolean direct=ACTION.matcher(piece).find() || (stockHere&&names.size()==1);
