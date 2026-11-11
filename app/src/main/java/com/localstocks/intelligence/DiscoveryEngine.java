@@ -351,6 +351,8 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
         try{
             root.put("stocks",cards);root.put("total",cards.length());root.put("generatedAt",now());
             root.put("windowDays",days);root.put("universe",UNIVERSE.length);
+            root.put("candidateSites",SourceDirectory.all().size());
+            root.put("targetedSites",SourceDirectory.searchable().size());
             JSONArray trusted=new JSONArray(),editorial=new JSONArray();
             for(String n:ResearchRules.brokers())trusted.put(n);
             for(String n:ResearchRules.editorial())editorial.put(n);
