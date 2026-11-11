@@ -24,7 +24,7 @@ public final class ResearchRules {
     };
     private static final String[] ANALYSTS = {
         "Sumeet Bagadia","Ganesh Dongre","Shiju Koothupalakkal",
-        "Raja Venkatraman","Vaishali Parekh"
+        "Raja Venkatraman","Vaishali Parekh","Shrikant Chouhan"
     };
     private static final String[] EDITORIAL = {
         "Mint","LiveMint","Economic Times","ET Markets","Business Standard",
