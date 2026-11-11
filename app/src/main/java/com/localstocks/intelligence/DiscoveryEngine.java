@@ -283,8 +283,25 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
             for(String n:ResearchRules.brokers())trusted.put(n);
             for(String n:ResearchRules.editorial())editorial.put(n);
             root.put("curatedBrokers",trusted);root.put("curatedPublishers",editorial);
+            root.put("indexedLeads",indexedLeads());
         }catch(Exception ignored){}
         return root;
+    }
+    private JSONArray indexedLeads(){
+        JSONArray items=new JSONArray();
+        try(Cursor c=getReadableDatabase().rawQuery(
+          "SELECT symbol,title,publisher,url,captured,channel FROM coverage WHERE channel != 'NEWS' ORDER BY captured DESC LIMIT 120",null)){
+            while(c.moveToNext()){
+                JSONObject j=new JSONObject();
+                try{
+                    j.put("symbol",c.getString(0));j.put("title",c.getString(1));j.put("publisher",c.getString(2));
+                    j.put("url",c.getString(3));j.put("indexedAt",c.getString(4));j.put("channel",c.getString(5));
+                    j.put("published","");j.put("note","Indexed lead: original date/author unverified. Excluded from confidence.");
+                }catch(Exception ignored){}
+                items.put(j);
+            }
+        }
+        return items;
     }
     private JSONObject buildStock(String symbol,List<News> articles,int windowDays){
         Map<String,Ranked> independent=new LinkedHashMap<>();
@@ -313,6 +330,13 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
                     j.put("stance",signal.direction);j.put("reason",signal.reason);
                     j.put("counted",counted);j.put("sourceName",src.name);j.put("sourceTier",src.tier);
                     j.put("sourceWeight",src.weight);
+                    TradeLevels.Levels levels=TradeLevels.extract(n.title,signal.direction);
+                    if(counted&&levels.hasAny()){
+                        if(levels.entry!=null)j.put("entryPrice",levels.entry);
+                        if(levels.target!=null)j.put("targetPrice",levels.target);
+                        if(levels.stop!=null)j.put("stopLoss",levels.stop);
+                        j.put("levelsSource","Explicit headline; confirm in original article");
+                    }
                 }catch(Exception ignored){}
                 evidence.put(j);
             }
@@ -350,6 +374,19 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
             o.put("recent",count);o.put("withLevels",withLevels);
             o.put("lastPublished",newest);o.put("windowDays",windowDays);
             o.put("evidence",evidence);
+            JSONObject firstLevels=new JSONObject();
+            for(int i=0;i<evidence.length();i++){
+                JSONObject e=evidence.optJSONObject(i);
+                if(e!=null&&e.optBoolean("counted")&&(e.has("entryPrice")||e.has("targetPrice")||e.has("stopLoss"))){
+                    if(e.has("entryPrice"))firstLevels.put("entry",e.opt("entryPrice"));
+                    if(e.has("targetPrice"))firstLevels.put("target",e.opt("targetPrice"));
+                    if(e.has("stopLoss"))firstLevels.put("stop",e.opt("stopLoss"));
+                    firstLevels.put("sourceUrl",e.optString("url"));
+                    firstLevels.put("sourceTitle",e.optString("title"));
+                    break;
+                }
+            }
+            o.put("sampleLevels",firstLevels);
             o.put("explanation",count==0?
                 "Coverage found, but no explicit stock-attributable BUY or SELL call in this period.":
                 supports+" supporting and "+opposes+" opposing independently grouped headline calls. "+
