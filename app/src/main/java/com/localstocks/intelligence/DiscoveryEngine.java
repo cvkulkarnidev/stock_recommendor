@@ -283,6 +283,9 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
             for(String n:ResearchRules.brokers())trusted.put(n);
             for(String n:ResearchRules.editorial())editorial.put(n);
             root.put("curatedBrokers",trusted);root.put("curatedPublishers",editorial);
+            JSONArray analysts=new JSONArray();
+            for(String a:ResearchRules.analysts())analysts.put(a);
+            root.put("curatedAnalysts",analysts);
             root.put("indexedLeads",indexedLeads());
         }catch(Exception ignored){}
         return root;
@@ -314,8 +317,8 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
             String titleKey=normalize(n.title).replaceAll("\\b(today|this week|tomorrow)\\b","").trim();
             boolean duplicate=seenTitles.contains(titleKey);
             seenTitles.add(titleKey);
-            String origin=src.tier.equals("NAMED_BROKER")||src.tier.equals("BROKER_PUBLISHER")
-               ?"broker:"+normalize(src.name):"publisher:"+normalize(n.publisher);
+            String origin=src.tier.equals("NAMED_BROKER")||src.tier.equals("BROKER_PUBLISHER")||src.tier.equals("NAMED_ANALYST")
+               ?"identified:"+normalize(src.name):"publisher:"+normalize(n.publisher);
             boolean eligible=signal.direction.equals("BUY")||signal.direction.equals("SELL");
             // An identical headline, or repeated content attributed to the same
             // original broker/publisher, can contribute at most one vote per stock.
