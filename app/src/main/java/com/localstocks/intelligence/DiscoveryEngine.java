@@ -361,6 +361,20 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
                     String ch=c.getString(5);
                     j.put("channel",ch.startsWith("INDEX_")?ch.substring(6):ch);
                     j.put("published","");j.put("excerpt",c.getString(6));j.put("queryLabel",c.getString(7));
+                    // These snippets have unverified original publication dates.
+                    // Never include extracted numbers in the confidence calculation.
+                    String symbol=c.getString(0);
+                    String title=c.getString(1),excerpt=c.getString(6);
+                    ResearchRules.Signal sig=ResearchRules.classify(title,symbol,symbolName(symbol));
+                    j.put("stance",sig.direction);
+                    String priceText=title;
+                    if(findMentions(title+" "+excerpt).size()==1)priceText+="; "+excerpt;
+                    if(findMentions(title).size()==1){
+                        TradeLevels.Levels levels=TradeLevels.extract(priceText,sig.direction);
+                        if(levels.entry!=null)j.put("entryPrice",levels.entry);
+                        if(levels.target!=null)j.put("targetPrice",levels.target);
+                        if(levels.stop!=null)j.put("stopLoss",levels.stop);
+                    }
                     j.put("note","Indexed lead: original date/author unverified. Excluded from confidence.");
                 }catch(Exception ignored){}
                 items.put(j);
