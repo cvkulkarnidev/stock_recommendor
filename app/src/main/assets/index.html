@@ -85,7 +85,7 @@ header{padding:22px 0 17px;display:flex;align-items:center;justify-content:space
 .empty p{font-size:12px;color:var(--muted);line-height:1.65}
 .empty button{margin-top:12px}
 .bottom-nav{position:fixed;z-index:30;bottom:0;left:0;right:0;background:#0d1727ec;border-top:1px solid #27384d;backdrop-filter:blur(16px);padding:9px 13px max(13px,env(safe-area-inset-bottom));display:flex;justify-content:center}
-.nav-content{display:grid;grid-template-columns:repeat(4,1fr);max-width:710px;width:100%}
+.nav-content{display:grid;grid-template-columns:repeat(5,1fr);max-width:710px;width:100%}
 .nav-item{border:0;background:none;color:#758ba3;padding:8px 4px;display:flex;flex-direction:column;align-items:center;gap:5px;font-size:10px;font-weight:700}
 .nav-item .symbol{font-size:20px}
 .nav-item.selected{color:#62dabd}
@@ -129,7 +129,7 @@ header{padding:22px 0 17px;display:flex;align-items:center;justify-content:space
 <div class="bottom-nav"><div class="nav-content" id="navbar"></div></div>
 <script>
 "use strict";
-var state={stocks:[],universe:0,updated:"",refreshing:false,message:"",error:"",tab:"Explore",filter:"All",query:"",detail:null,watch:[],dataReceived:false,windowDays:7,curatedBrokers:[],curatedPublishers:[]};
+var state={stocks:[],universe:0,updated:"",refreshing:false,message:"",error:"",tab:"Explore",filter:"All",query:"",detail:null,watch:[],dataReceived:false,windowDays:7,curatedBrokers:[],curatedPublishers:[],curatedAnalysts:[],indexedLeads:[]};
 try{state.watch=JSON.parse(localStorage.getItem("watchlist")||"[]");}catch(e){state.watch=[];}
 function esc(v){return String(v===null||v===undefined?"":v).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]});}
 function dateText(s){if(!s)return "Date not supplied";var d=new Date(s);if(isNaN(d.getTime()))return s.slice(0,10);return d.toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"});}
@@ -148,14 +148,14 @@ function openSource(encoded){try{var url=decodeURIComponent(encoded);if(url.star
 function saveWatch(symbol){var i=state.watch.indexOf(symbol);if(i<0)state.watch.push(symbol);else state.watch.splice(i,1);try{localStorage.setItem("watchlist",JSON.stringify(state.watch));}catch(e){}draw();}
 function receiveNative(message){try{
 var msg=JSON.parse(message);
-if(msg.kind==="snapshot"){var d=msg.payload||{};state.stocks=d.stocks||[];state.updated=msg.lastRefresh||"";state.windowDays=d.windowDays||state.windowDays;state.universe=d.universe||0;state.curatedBrokers=d.curatedBrokers||[];state.curatedPublishers=d.curatedPublishers||[];state.dataReceived=true;}
+if(msg.kind==="snapshot"){var d=msg.payload||{};state.stocks=d.stocks||[];state.updated=msg.lastRefresh||"";state.windowDays=d.windowDays||state.windowDays;state.universe=d.universe||0;state.curatedBrokers=d.curatedBrokers||[];state.curatedPublishers=d.curatedPublishers||[];state.curatedAnalysts=d.curatedAnalysts||[];state.indexedLeads=d.indexedLeads||[];state.dataReceived=true;}
 state.refreshing=!!msg.refreshing;state.message=msg.message||"";state.error=msg.error||"";
 if(state.detail&&!state.stocks.some(function(x){return x.symbol===state.detail;}))state.detail=null;
 draw();
 }catch(e){state.error="Could not read collected data";draw();}}
 window.receiveNative=receiveNative;window.appBack=appBack;
 function nav(){
-var menu=[["Explore","⌂"],["Saved","☆"],["Sources","▤"],["About","◈"]];
+var menu=[["Explore","⌂"],["Saved","☆"],["Indexed","⌕"],["Sources","▤"],["About","◈"]];
 document.getElementById("navbar").innerHTML=menu.map(function(x){return '<button class="nav-item '+(state.tab===x[0]?'selected':'')+'" onclick="tabTo(\''+x[0]+'\')"><span class="symbol">'+x[1]+'</span>'+x[0]+'</button>';}).join("");
 }
 function statusHtml(){
@@ -201,6 +201,15 @@ var el=document.getElementById("stockList");if(!el)return;
 el.innerHTML=listContent(currentStocks());
 var n=document.querySelector(".count");if(n)n.textContent=currentStocks().length+" results";
 }
+function rupee(v){return typeof v==="number"?"₹"+v.toLocaleString("en-IN",{maximumFractionDigits:2}):"Not specified";}
+function levelRow(n){
+if(n.entryPrice==null&&n.targetPrice==null&&n.stopLoss==null)return "";
+return '<div class="two-col" style="grid-template-columns:repeat(3,1fr);margin:12px 0">'+
+'<div class="statbox"><div class="lbl">Buy / sell entry</div><div style="font-size:13px;font-weight:700;margin-top:6px">'+rupee(n.entryPrice)+'</div></div>'+
+'<div class="statbox"><div class="lbl">Target price</div><div style="font-size:13px;font-weight:700;margin-top:6px;color:var(--green)">'+rupee(n.targetPrice)+'</div></div>'+
+'<div class="statbox"><div class="lbl">Stop-loss</div><div style="font-size:13px;font-weight:700;margin-top:6px;color:var(--red)">'+rupee(n.stopLoss)+'</div></div></div>'+
+'<div class="small-note">Price levels extracted from headline text only. Verify dates and values in the original report before trading.</div>';
+}
 function detailPage(){
 var x=state.stocks.find(function(s){return s.symbol===state.detail;});
 if(!x)return '';
@@ -217,10 +226,23 @@ return '<div class="detail-head"><button class="back" onclick="appBack()">‹ Ba
 '<div class="detail-section"><div class="split"><h3>Source evidence</h3><span class="tag">'+x.coverage+' articles</span></div>'+
 x.evidence.map(function(n){
 return '<div class="story"><div class="story-actions"><span class="pill-small '+n.stance.toLowerCase()+'">'+esc(n.stance)+'</span><span class="small-note">'+(n.counted?"Counted in score":"Context / duplicate / non-directional")+'</span></div>'+
-'<div class="story-title" style="margin-top:10px">'+esc(n.title)+'</div><div class="story-meta">'+esc(n.publisher||"Unspecified publisher")+' · Published '+esc(dateText(n.published))+' · '+esc(n.sourceTier==="NAMED_BROKER"||n.sourceTier==="BROKER_PUBLISHER"?"Curated brokerage":n.sourceTier==="CURATED_NEWS"?"Curated publication":"Other source")+'</div>'+
+'<div class="story-title" style="margin-top:10px">'+esc(n.title)+'</div>'+levelRow(n)+'<div class="story-meta">'+esc(n.publisher||"Unspecified publisher")+' · Published '+esc(dateText(n.published))+' · '+esc(n.sourceTier==="NAMED_BROKER"||n.sourceTier==="BROKER_PUBLISHER"?"Curated brokerage":n.sourceTier==="CURATED_NEWS"?"Curated publication":"Other source")+'</div>'+
 '<div class="small-note">Attributed source: '+esc(n.sourceName)+' · '+esc(n.reason)+'</div>'+
 '<button class="textlink" onclick="openSource(\''+encodeURIComponent(n.url)+'\')">Open original coverage ↗</button></div>';
 }).join("")+'</div>';
+}
+function indexedPage(){
+var grouped={REDDIT:[],X_INDEX:[],INDEPENDENT:[]};
+(state.indexedLeads||[]).forEach(function(n){if(grouped[n.channel])grouped[n.channel].push(n);});
+var sections=[["REDDIT","Reddit indexed discussions"],["X_INDEX","X / Twitter indexed posts"],["INDEPENDENT","Independent analyst index results"]];
+return '<div class="title-row"><div><div class="section-title">Public search-index results</div><div class="section-caption">Free discovery · not direct Reddit/X APIs</div></div></div>'+
+'<div class="notice">These are links found in a free search-engine index. Original post timestamps and author identity are not verified, so they <b>do not inflate trade confidence</b>. The original platform may require a login. No restricted scraping is used.</div>'+
+sections.map(function(pair){var list=grouped[pair[0]];return '<div class="detail-section"><div class="split"><h3>'+pair[1]+'</h3><span class="tag">'+list.length+' results</span></div>'+
+(list.length?list.slice(0,35).map(function(n){
+return '<div class="story"><div class="story-title">'+esc(n.symbol)+' · '+esc(n.title)+'</div>'+
+'<div class="story-meta">Found in index '+esc(dateText(n.indexedAt))+' · Original post date unknown</div>'+
+'<button class="textlink" onclick="openSource(\''+encodeURIComponent(n.url)+'\')">Open indexed source ↗</button></div>';
+}).join(""):'<p class="small-note">No matching public index results were returned. This is not proof that the platform has no discussions.</p>')+'</div>';}).join("");
 }
 function sourcesPage(){
 var publishers={};
@@ -230,6 +252,7 @@ state.stocks.forEach(function(stock){
 var rows=Object.keys(publishers).map(function(k){return {name:k,articles:publishers[k].articles,stocks:publishers[k].stocks.length}}).sort(function(a,b){return b.articles-a.articles});
 return '<div class="title-row"><div><div class="section-title">Source coverage</div><div class="section-caption">Public articles discovered via RSS search</div></div></div>'+
 '<div class="notice">Curated identifies recognizable institutional or editorial source names—not independently authenticated reports or successful analysts. Unknown publishers still contribute at lower weight. The app links to original coverage for review.</div>'+
+'<div class="detail-section"><h3>Tracked independent analysts ('+state.curatedAnalysts.length+')</h3><p class="small-note">'+esc(state.curatedAnalysts.join(" · "))+'</p></div>'+
 '<div class="detail-section"><h3>Curated brokerages ('+state.curatedBrokers.length+')</h3><p class="small-note">'+esc(state.curatedBrokers.join(" · "))+'</p></div>'+
 '<div class="detail-section"><h3>Curated financial publishers ('+state.curatedPublishers.length+')</h3><p class="small-note">'+esc(state.curatedPublishers.join(" · "))+'</p></div>'+
 '<div class="detail-section"><h3>Observed publishers</h3>'+
@@ -252,6 +275,7 @@ if(state.tab==="Explore"||state.tab==="Saved"){
 content.innerHTML=(state.tab==="Explore"?hero():'')+listSection()+
 '<div class="small-note" style="padding:12px 4px">Sources can be incomplete or delayed. Confidence indicates evidence consistency, not trade success. No fabricated price data.</div>';
 }else if(state.tab==="Sources")content.innerHTML=sourcesPage();
+else if(state.tab==="Indexed")content.innerHTML=indexedPage();
 else content.innerHTML=aboutPage();
 }
 draw();
