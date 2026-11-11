@@ -199,6 +199,14 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
         String key=normalize(symbol);
         return key.length()>=4&&(" "+norm+" ").contains(" "+key+" ");
     }
+    private static boolean matchesSingleStock(String text,String symbol,String company){
+        List<Mention> mentions=findMentions(text);
+        if(mentions.size()==1)return symbol.equals(mentions.get(0).symbol);
+        // The market-wide recognizer covers only a curated NSE universe.
+        // Deep Search may receive other tickers; match those explicitly while
+        // avoiding ambiguous short words or multi-company roundups.
+        return mentions.isEmpty()&&symbol.length()>=4&&mentionsDeepStock(text,symbol,company);
+    }
     public static final class DeepReport {
         public int queries,successes,found,saved,failures;
         public final java.util.List<String> errors=new java.util.ArrayList<>();
@@ -368,8 +376,8 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
                     ResearchRules.Signal sig=ResearchRules.classify(title,symbol,symbolName(symbol));
                     j.put("stance",sig.direction);
                     String priceText=title;
-                    if(findMentions(title+" "+excerpt).size()==1)priceText+="; "+excerpt;
-                    if(findMentions(title).size()==1){
+                    if(matchesSingleStock(title+" "+excerpt,symbol,symbolName(symbol)))priceText+="; "+excerpt;
+                    if(matchesSingleStock(title,symbol,symbolName(symbol))){
                         TradeLevels.Levels levels=TradeLevels.extract(priceText,sig.direction);
                         if(levels.entry!=null)j.put("entryPrice",levels.entry);
                         if(levels.target!=null)j.put("targetPrice",levels.target);
@@ -396,7 +404,7 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
             String origin=src.tier.equals("NAMED_BROKER")||src.tier.equals("BROKER_PUBLISHER")||src.tier.equals("NAMED_ANALYST")
                ?"identified:"+normalize(src.name):"publisher:"+normalize(n.publisher);
             boolean eligible=(signal.direction.equals("BUY")||signal.direction.equals("SELL"))
-                &&findMentions(n.title).size()==1;
+                &&matchesSingleStock(n.title,symbol,symbolName(symbol));
             // An identical headline, or repeated content attributed to the same
             // original broker/publisher, can contribute at most one vote per stock.
             boolean counted=eligible&&!duplicate&&!independent.containsKey(origin);
@@ -414,10 +422,10 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
                     // monitored company. A mixed multi-company article is unsafe.
                     String priceText=n.title;
                     if(n.excerpt!=null&&!n.excerpt.isEmpty()&&
-                       findMentions(n.title+" "+n.excerpt).size()==1)
+                       matchesSingleStock(n.title+" "+n.excerpt,symbol,symbolName(symbol)))
                         priceText=n.title+"; "+n.excerpt;
                     TradeLevels.Levels levels=TradeLevels.extract(priceText,signal.direction);
-                    if(counted&&levels.hasAny()&&findMentions(n.title).size()==1){
+                    if(counted&&levels.hasAny()&&matchesSingleStock(n.title,symbol,symbolName(symbol))){
                         if(levels.entry!=null)j.put("entryPrice",levels.entry);
                         if(levels.target!=null)j.put("targetPrice",levels.target);
                         if(levels.stop!=null)j.put("stopLoss",levels.stop);
