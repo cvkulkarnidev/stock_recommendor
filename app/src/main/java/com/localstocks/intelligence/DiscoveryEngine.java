@@ -174,13 +174,21 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
         v.put("channel",dated?"NEWS":"INDEX_"+hit.channel);
         v.put("excerpt",hit.excerpt);v.put("query_label",hit.channel+" / "+hit.provider);
         long inserted=getWritableDatabase().insertWithOnConflict("coverage",null,v,SQLiteDatabase.CONFLICT_IGNORE);
-        if(inserted==-1&&!hit.excerpt.isEmpty()){
-            // Keep original publication/attribution; only enrich prior headline
-            // discovery with an additional publicly supplied RSS excerpt.
+        if(inserted==-1){
+            // A previously undated index lead can be promoted only after an
+            // original publication timestamp was found on the accessible page.
             ContentValues enrichment=new ContentValues();
-            enrichment.put("excerpt",hit.excerpt);enrichment.put("query_label",hit.channel+" / "+hit.provider);
-            getWritableDatabase().update("coverage",enrichment,
-                "symbol=? AND url=? AND excerpt=''",new String[]{symbol,hit.url});
+            if(!hit.excerpt.isEmpty()){
+                enrichment.put("excerpt",hit.excerpt);
+                enrichment.put("query_label",hit.channel+" / "+hit.provider);
+            }
+            if(dated){
+                enrichment.put("published",hit.published);
+                enrichment.put("channel","NEWS");
+                enrichment.put("publisher",hit.publisher);
+            }
+            if(enrichment.size()>0)getWritableDatabase().update("coverage",enrichment,
+                "symbol=? AND url=? AND (published='' OR excerpt='')",new String[]{symbol,hit.url});
         }
         return inserted!=-1;
     }
