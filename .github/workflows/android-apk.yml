@@ -22,8 +22,8 @@ jobs:
         with:
           gradle-version: '8.9'
       - name: Build debug APK
-        run: gradle --no-daemon :app:assembleDebug
-      - name: Upload APK
+        run: gradle --no-daemon --stacktrace :app:assembleDebug
+      - name: Check built APK\n        run: test -s app/build/outputs/apk/debug/app-debug.apk\n      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: StockIntelligence-debug-apk
