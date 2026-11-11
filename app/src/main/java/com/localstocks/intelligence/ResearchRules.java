@@ -22,6 +22,10 @@ public final class ResearchRules {
         "Jefferies","Nomura","Morgan Stanley","Goldman Sachs","Citi",
         "UBS","Bernstein","HSBC","CLSA","Macquarie","Investec"
     };
+    private static final String[] ANALYSTS = {
+        "Sumeet Bagadia","Ganesh Dongre","Shiju Koothupalakkal",
+        "Raja Venkatraman","Vaishali Parekh"
+    };
     private static final String[] EDITORIAL = {
         "Mint","LiveMint","Economic Times","ET Markets","Business Standard",
         "Moneycontrol","CNBC TV18","CNBC-TV18","NDTV Profit","Reuters",
@@ -52,6 +56,7 @@ public final class ResearchRules {
         // claimed by the headline, not verified against a signed original report.
         for(String s:BROKERS)if(phrase(title,s))return new Source(s,"NAMED_BROKER",1.0);
         for(String s:BROKERS)if(phrase(publisher,s))return new Source(s,"BROKER_PUBLISHER",1.0);
+        for(String s:ANALYSTS)if(phrase(title,s))return new Source(s,"NAMED_ANALYST",0.85);
         for(String s:EDITORIAL)if(phrase(publisher,s))return new Source(s,"CURATED_NEWS",0.76);
         return new Source(publisher==null||publisher.trim().isEmpty()?"Unknown source":publisher.trim(),"OTHER",0.47);
     }
@@ -117,4 +122,5 @@ public final class ResearchRules {
     }
     public static String[] brokers(){return BROKERS.clone();}
     public static String[] editorial(){return EDITORIAL.clone();}
+    public static String[] analysts(){return ANALYSTS.clone();}
 }
