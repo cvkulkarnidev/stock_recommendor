@@ -29,9 +29,9 @@ public final class ResearchRules {
         "The Hindu","Hindustan Times","Zee Business","ET Now"
     };
     private static final String BUY_TERMS =
-       "(?:buy(?:ing)?|accumulate|upgrade(?:d)?(?: to buy)?|initiates? (?:with )?buy|outperform|overweight)";
+       "(?:buy(?:ing)?|accumulate|upgrad(?:e|ed|es)(?: to buy)?|initiates? (?:with )?buy|outperform|overweight)";
     private static final String SELL_TERMS =
-       "(?:sell(?:ing)?|exit|reduce|downgrade(?:d)?(?: to sell)?|underperform|underweight|avoid)";
+       "(?:sell(?:ing)?|exit|reduce|downgrad(?:e|ed|es)(?: to sell)?|underperform|underweight|avoid)";
     public static final class Source {
         public final String name,tier;
         public final double weight;
@@ -79,6 +79,10 @@ public final class ResearchRules {
     }
     public static Signal classify(String headline,String symbol,String company){
         String t=norm(headline);
+        // Stock-list headlines without explicit analyst attribution are only leads.
+        if((t.contains("stocks to buy")||t.contains("stock picks")||t.contains("top picks"))
+          && !t.matches(".*\\b(recommends?|recommended|rates|initiates?|target)\\b.*"))
+            return new Signal("WATCH","Generic multi-stock headline without attributable call");
         // Questions, broad educational pieces and listicles without stock-specific
         // actionable attribution cannot be treated as recommendations.
         if(headline.contains("?") || t.matches(".*\\b(how to|what is|should you|explained|buy or sell|buy sell|buy hold or sell|stocks to watch)\\b.*"))
