@@ -178,7 +178,7 @@ public final class MainActivity extends Activity {
         for(String symbol:sorted){
             Analytics.Score score=Analytics.score(symbol,all);
             LinearLayout panel=card(body);
-            label(panel,symbol+"  ·  "+score.direction+"  ·  "+score.value+"/75 provisional evidence points",17,INK);
+            label(panel,symbol+"  ·  "+score.direction+"  ·  "+score.value+"/100 provisional evidence score (capped at 75)",17,INK);
             label(panel,score.explanation,12,MUTED);
             button(panel,"Investigate "+symbol+" in news",()->{show("Discover");refreshSearch(symbol);});
             for(Store.Call call:all)if(call.symbol.equals(symbol)){
