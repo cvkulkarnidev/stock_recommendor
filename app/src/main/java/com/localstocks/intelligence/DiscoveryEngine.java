@@ -55,20 +55,24 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
       {"GODREJCP","Godrej Consumer Products"},{"DABUR","Dabur India"},{"INDUSINDBK","IndusInd Bank"}
     };
     private static final String[] QUERIES = {
-      "India stocks to buy today brokerage analysts target price when:14d",
-      "India stocks to sell exit reduce analysts recommendation when:14d",
-      "NSE swing trade stock buy recommendation target stop loss when:14d",
-      "Indian stock market brokerages top picks buy call when:14d",
-      "ICICI Direct Motilal Oswal buy sell stock technical call when:14d",
-      "Prabhudas Lilladher Choice Broking Anand Rathi buy stocks when:14d",
-      "Indian midcap stocks buy recommendations analysts when:14d",
-      "Indian largecap stocks brokerage upgrade downgrade when:14d",
-      "NSE bank IT pharma stocks buy sell recommendation when:14d",
-      "Indian equity market technical stock picks for next week when:14d",
-      "Reliance HDFC Bank ICICI Bank SBI stock buy sell brokerage when:14d",
-      "Infosys TCS Wipro HCL Tech stock buy sell target when:14d",
-      "Tata Motors Maruti Suzuki Mahindra stock recommendation when:14d",
-      "HAL BEL Dixon Persistent Systems stock buy analysts when:14d"
+      "India stocks to buy today brokerage analysts target price when:30d",
+      "India stocks to sell exit reduce analysts recommendation when:30d",
+      "NSE swing trade stock buy recommendation target stop loss when:30d",
+      "Indian stock market brokerages top picks buy call when:30d",
+      "ICICI Direct Motilal Oswal buy sell stock technical call when:30d",
+      "Prabhudas Lilladher Choice Broking Anand Rathi buy stocks when:30d",
+      "Indian midcap stocks buy recommendations analysts when:30d",
+      "Indian largecap stocks brokerage upgrade downgrade when:30d",
+      "NSE bank IT pharma stocks buy sell recommendation when:30d",
+      "Indian equity market technical stock picks for next week when:30d",
+      "Reliance HDFC Bank ICICI Bank SBI stock buy sell brokerage when:30d",
+      "Infosys TCS Wipro HCL Tech stock buy sell target when:30d",
+      "Tata Motors Maruti Suzuki Mahindra stock recommendation when:30d",
+      "HAL BEL Dixon Persistent Systems stock buy analysts when:30d",
+      "site:moneycontrol.com brokerages recommend stocks buy sell when:30d",
+      "site:livemint.com markets stock recommendations analysts when:30d",
+      "site:business-standard.com markets research report buy sell when:30d",
+      "Kotak Securities Axis Securities HDFC Securities stocks buy sell when:30d"
     };
     public static final class RefreshReport {
         public int articles, inserted, failures, requests;
@@ -154,7 +158,7 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
         List<String> candidates=topSymbols(8);
         for(String symbol:candidates){
             String name=symbolName(symbol);
-            fetch("\""+name+"\" stock buy sell target analyst NSE when:14d",report);
+            fetch("\""+name+"\" stock buy sell target analyst NSE when:30d",report);
         }
         getWritableDatabase().delete("coverage","published <> '' AND substr(published,1,10) < ?",new String[]{LocalDate.now(ZoneOffset.UTC).minusDays(60).toString()});
         return report;
