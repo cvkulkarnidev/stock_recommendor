@@ -513,7 +513,6 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
                 }catch(Exception ignored){}
                 evidence.put(j);
             }
-            }
         }
         int buy=0,sell=0,known=0,other=0,withLevels=0;
         double ageQuality=0;
