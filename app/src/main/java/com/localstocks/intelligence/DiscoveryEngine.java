@@ -166,10 +166,12 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
         if(hit.url==null||!hit.url.startsWith("https://")||hit.title==null)return false;
         ContentValues v=new ContentValues();
         v.put("symbol",symbol);v.put("title",hit.title);v.put("publisher",
-             hit.provider.equals("BING")?hit.channel+" indexed search":hit.publisher);
+             hit.publisher==null||hit.publisher.isEmpty()?
+                 hit.channel+" indexed search":hit.publisher);
         v.put("url",hit.url);v.put("published",hit.published);
         v.put("captured",now());v.put("stance","WATCH");v.put("origin","deep:"+hit.channel);
-        v.put("channel",hit.provider.equals("GOOGLE")?"NEWS":"INDEX_"+hit.channel);
+        boolean dated=!hit.published.isEmpty()&&!hit.channel.equals("REDDIT")&&!hit.channel.equals("X_INDEX");
+        v.put("channel",dated?"NEWS":"INDEX_"+hit.channel);
         v.put("excerpt",hit.excerpt);v.put("query_label",hit.channel+" / "+hit.provider);
         long inserted=getWritableDatabase().insertWithOnConflict("coverage",null,v,SQLiteDatabase.CONFLICT_IGNORE);
         if(inserted==-1&&!hit.excerpt.isEmpty()){
@@ -199,7 +201,7 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
         return mentions.isEmpty()&&symbol.length()>=4&&mentionsDeepStock(text,symbol,company);
     }
     public static final class DeepReport {
-        public int queries,successes,found,saved,failures,candidateDomains,observedDomains,observedPublishers,skipped;
+        public int queries,successes,found,saved,failures,candidateDomains,observedDomains,observedPublishers,skipped,publicArticlesRead,publicArticlesBlocked;
         public final java.util.List<String> errors=new java.util.ArrayList<>();
     }
     public DeepReport deepSearch(String symbol,String company){
@@ -212,13 +214,27 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
         java.util.Set<String> publishers=new java.util.HashSet<>();
         r.failures=source.queries-source.succeeded;
         r.errors.addAll(source.failures);
+        int triedArticles=0;
         for(DeepResearch.Hit h:source.hits){
             if(!mentionsDeepStock(h.title,symbol,company))continue;
             r.found++;
+            DeepResearch.Hit observed=h;
+            if(triedArticles<8 && PublicArticleReader.supportsUrl(h.url)){
+                triedArticles++;
+                PublicArticleReader.Result result=PublicArticleReader.readPublic(h.url,symbol,company);
+                if(result.status.equals("READ")){
+                    r.publicArticlesRead++;
+                    observed=new DeepResearch.Hit(h.channel,h.provider,h.query,h.title,
+                        result.excerpt,h.url,
+                        result.publisher.isEmpty()?h.publisher:result.publisher,
+                        result.published.isEmpty()?h.published:result.published);
+                }else r.publicArticlesBlocked++;
+            }
             try{matchedHosts.add(new java.net.URL(h.url).getHost().toLowerCase(java.util.Locale.ROOT));}
             catch(Exception ignored){}
-            if(h.publisher!=null&&!h.publisher.trim().isEmpty())publishers.add(h.publisher.trim().toLowerCase(java.util.Locale.ROOT));
-            if(insertDeep(symbol,h))r.saved++;
+            if(observed.publisher!=null&&!observed.publisher.trim().isEmpty())
+                publishers.add(observed.publisher.trim().toLowerCase(java.util.Locale.ROOT));
+            if(insertDeep(symbol,observed))r.saved++;
         }
         r.observedDomains=matchedHosts.size();
         r.observedPublishers=publishers.size();
