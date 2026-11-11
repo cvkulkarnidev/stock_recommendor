@@ -218,83 +218,119 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
         for(String[] pair:UNIVERSE)if(pair[0].equalsIgnoreCase(symbol))return pair[1];
         return "";
     }
-    public JSONObject snapshot(){
+
+    public JSONObject snapshot(){return snapshot(7);}
+    public JSONObject snapshot(int windowDays){
+        int days=Math.max(1,Math.min(30,windowDays));
         JSONObject root=new JSONObject();JSONArray cards=new JSONArray();
         Map<String,List<News>> grouped=new HashMap<>();
-        try(Cursor c=getReadableDatabase().rawQuery("SELECT symbol,title,publisher,url,published,stance,origin FROM coverage ORDER BY published DESC LIMIT 2500",null)){
+        try(Cursor c=getReadableDatabase().rawQuery(
+          "SELECT symbol,title,publisher,url,published,stance,origin,captured FROM coverage WHERE published >= ? AND published != '' ORDER BY published DESC LIMIT 5000",
+          new String[]{LocalDate.now(ZoneOffset.UTC).minusDays(days-1).toString()})){
             while(c.moveToNext()){
-                News n=new News(c.getString(0),c.getString(1),c.getString(2),c.getString(3),c.getString(4),c.getString(5),c.getString(6));
+                News n=new News(c.getString(0),c.getString(1),c.getString(2),c.getString(3),c.getString(4),c.getString(5),c.getString(6),c.getString(7));
                 if(!grouped.containsKey(n.symbol))grouped.put(n.symbol,new ArrayList<>());
                 grouped.get(n.symbol).add(n);
             }
         }
         List<JSONObject> sorted=new ArrayList<>();
-        for(String symbol:grouped.keySet()){
-            List<News> news=grouped.get(symbol);
-            JSONObject o=buildStock(symbol,news);
-            sorted.add(o);
-        }
+        for(String symbol:grouped.keySet())sorted.add(buildStock(symbol,grouped.get(symbol),days));
         Collections.sort(sorted,(a,b)->{
             int diff=b.optInt("rankScore")-a.optInt("rankScore");
             return diff!=0?diff:a.optString("symbol").compareTo(b.optString("symbol"));
         });
         for(JSONObject o:sorted)cards.put(o);
-        try{root.put("stocks",cards);root.put("total",cards.length());root.put("updated",now());root.put("universe",UNIVERSE.length);}catch(Exception ignored){}
+        try{
+            root.put("stocks",cards);root.put("total",cards.length());root.put("generatedAt",now());
+            root.put("windowDays",days);root.put("universe",UNIVERSE.length);
+            JSONArray trusted=new JSONArray(),editorial=new JSONArray();
+            for(String n:ResearchRules.brokers())trusted.put(n);
+            for(String n:ResearchRules.editorial())editorial.put(n);
+            root.put("curatedBrokers",trusted);root.put("curatedPublishers",editorial);
+        }catch(Exception ignored){}
         return root;
     }
-    private JSONObject buildStock(String symbol,List<News> articles){
-        // One counted direction per apparent underlying institution or publisher;
-        // exact headline syndications cannot become separate votes.
-        Map<String,News> byOrigin=new LinkedHashMap<>();
-        Set<String> duplicateTitles=new HashSet<>();
-        int watching=0;
-        for(News n:articles){
-            if(n.stance.equals("WATCH")||n.stance.equals("MIXED")){watching++;continue;}
-            String titleKey=normalize(n.title).replaceAll("\\b(today|this week|tomorrow)\\b","").trim();
-            if(duplicateTitles.contains(titleKey))continue;
-            duplicateTitles.add(titleKey);
-            if(!byOrigin.containsKey(n.origin))byOrigin.put(n.origin,n);
-        }
-        int buy=0,sell=0,recent=0,explicit=0;
+    private JSONObject buildStock(String symbol,List<News> articles,int windowDays){
+        Map<String,Ranked> independent=new LinkedHashMap<>();
+        Set<String> seenTitles=new HashSet<>();
         JSONArray evidence=new JSONArray();
-        for(News n:byOrigin.values()){
-            if(n.stance.equals("BUY"))buy++;else sell++;
-            try{long age=ChronoUnit.DAYS.between(LocalDate.parse(n.published.substring(0,10)),LocalDate.now(ZoneOffset.UTC));if(age>=0&&age<=14)recent++;}catch(Exception ignored){}
-            if(n.title.toLowerCase(Locale.ROOT).matches(".*\\b(target|stop.loss|entry|upside|downside)\\b.*"))explicit++;
-        }
-        int count=buy+sell,dominant=Math.max(buy,sell),opposing=Math.min(buy,sell);
-        String direction=count==0?"WATCH":buy==sell?"MIXED":buy>sell?"BUY":"SELL";
-        // Evidence quality only; no historical analyst track record or expected return.
-        // Missing factors are explicitly withheld: evidence score capped at 70.
-        int confidence=count==0?0:(int)Math.round(
-           25.0*dominant/count
-          +20.0*Math.min(dominant,4)/4.0
-          +15.0*recent/count
-          +10.0*explicit/count
-        );
-        int rank=confidence+Math.min(articles.size(),12)+(count==0?-20:0);
+        String newest="";
         for(News n:articles){
-            JSONObject j=new JSONObject();
-            try{j.put("title",n.title);j.put("publisher",n.publisher);j.put("url",n.url);j.put("published",n.published);j.put("stance",n.stance);j.put("counted",byOrigin.get(n.origin)==n);}
-            catch(Exception ignored){}
-            evidence.put(j);
-            if(evidence.length()>=35)break;
+            ResearchRules.Source src=ResearchRules.source(n.title,n.publisher);
+            ResearchRules.Signal signal=ResearchRules.classify(n.title,symbol,symbolName(symbol));
+            String titleKey=normalize(n.title).replaceAll("\\b(today|this week|tomorrow)\\b","").trim();
+            boolean duplicate=seenTitles.contains(titleKey);
+            seenTitles.add(titleKey);
+            String origin=src.tier.equals("NAMED_BROKER")||src.tier.equals("BROKER_PUBLISHER")
+               ?"broker:"+normalize(src.name):"publisher:"+normalize(n.publisher);
+            boolean eligible=signal.direction.equals("BUY")||signal.direction.equals("SELL");
+            // An identical headline, or repeated content attributed to the same
+            // original broker/publisher, can contribute at most one vote per stock.
+            boolean counted=eligible&&!duplicate&&!independent.containsKey(origin);
+            if(counted)independent.put(origin,new Ranked(n,src,signal));
+            if(n.published!=null&&n.published.compareTo(newest)>0)newest=n.published;
+            if(evidence.length()<70){
+                JSONObject j=new JSONObject();
+                try{
+                    j.put("title",n.title);j.put("publisher",n.publisher);j.put("url",n.url);
+                    j.put("published",n.published);j.put("captured",n.captured);
+                    j.put("stance",signal.direction);j.put("reason",signal.reason);
+                    j.put("counted",counted);j.put("sourceName",src.name);j.put("sourceTier",src.tier);
+                    j.put("sourceWeight",src.weight);
+                }catch(Exception ignored){}
+                evidence.put(j);
+            }
         }
+        int buy=0,sell=0,known=0,other=0,withLevels=0;
+        double weightedBuy=0,weightedSell=0,quality=0;
+        for(Ranked r:independent.values()){
+            if(r.signal.direction.equals("BUY")){buy++;weightedBuy+=r.src.weight;}
+            else{sell++;weightedSell+=r.src.weight;}
+            if(r.src.tier.equals("OTHER"))other++;else known++;
+            quality+=r.src.weight;
+            if(normalize(r.news.title).matches(".*\\b(target|stop loss|entry|upside|downside|rs [0-9]+)\\b.*"))withLevels++;
+        }
+        int count=buy+sell;
+        String direction=count==0?"WATCH":weightedBuy==weightedSell?"MIXED":weightedBuy>weightedSell?"BUY":"SELL";
+        int supports=direction.equals("BUY")?buy:direction.equals("SELL")?sell:Math.max(buy,sell);
+        int opposes=direction.equals("BUY")?sell:direction.equals("SELL")?buy:Math.min(buy,sell);
+        double agreement=count==0?0:20.0*Math.max(weightedBuy,weightedSell)/Math.max(.001,weightedBuy+weightedSell);
+        double diversity=20.0*Math.min(4,Math.max(0,count-1))/4.0;
+        double sourceQuality=count==0?0:25.0*quality/count;
+        // Every article was filtered into the requested age window; narrower
+        // windows award more freshness credit than older weekly/monthly evidence.
+        double freshness=count==0?0:10.0*Math.max(0,1.0-(windowDays-1)/45.0);
+        double directness=count==0?0:10.0; // direction is explicitly attributable near the stock name
+        int confidence=count==0?0:(int)Math.round(agreement+diversity+sourceQuality+freshness+directness);
+        confidence=Math.min(85,confidence);
+        int ranking=confidence+Math.min(articles.size(),12)+(count==0?-25:0);
         JSONObject o=new JSONObject();
-        try {
+        try{
             o.put("symbol",symbol);o.put("name",symbolName(symbol));o.put("direction",direction);
-            o.put("confidence",confidence);o.put("rankScore",rank);
+            o.put("confidence",confidence);o.put("rankScore",ranking);
             o.put("buy",buy);o.put("sell",sell);o.put("sources",count);
-            o.put("coverage",articles.size());o.put("watch",watching);
-            o.put("recent",recent);o.put("withLevels",explicit);
+            o.put("curatedSources",known);o.put("otherSources",other);
+            o.put("coverage",articles.size());o.put("watch",Math.max(0,articles.size()-count));
+            o.put("recent",count);o.put("withLevels",withLevels);
+            o.put("lastPublished",newest);o.put("windowDays",windowDays);
             o.put("evidence",evidence);
-            o.put("explanation",count==0?"Coverage found; no explicit, independently grouped BUY or SELL headline.":(
-               dominant+" supporting vs "+opposing+" opposing grouped headline signals; "+recent+" published within 14 days; "+explicit+" mention a target/entry/stop in the headline. Score capped at 70 without audited trade outcomes."));
+            o.put("explanation",count==0?
+                "Coverage found, but no explicit stock-attributable BUY or SELL call in this period.":
+                supports+" supporting and "+opposes+" opposing independently grouped headline calls. "+
+                known+" from curated source names, "+other+" from other publishers. "+
+                "Trusted names receive more weight, not automatic proof of accuracy. "+
+                "Score is evidence-based, capped at 85 without audited outcome data.");
         }catch(Exception ignored){}
         return o;
     }
+    private static final class Ranked{
+        final News news;final ResearchRules.Source src;final ResearchRules.Signal signal;
+        Ranked(News n,ResearchRules.Source s,ResearchRules.Signal g){news=n;src=s;signal=g;}
+    }
     private static final class News{
-        final String symbol,title,publisher,url,published,stance,origin;
-        News(String s,String t,String p,String u,String d,String st,String org){symbol=s;title=t;publisher=p;url=u;published=d;stance=st;origin=org;}
+        final String symbol,title,publisher,url,published,stance,origin,captured;
+        News(String s,String t,String p,String u,String d,String st,String org,String cap){
+            symbol=s;title=t;publisher=p;url=u;published=d;stance=st;origin=org;captured=cap;
+        }
     }
 }
