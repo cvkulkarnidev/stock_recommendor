@@ -33,9 +33,9 @@ public final class ResearchRules {
         "The Hindu","Hindustan Times","Zee Business","ET Now"
     };
     private static final String BUY_TERMS =
-       "(?:buy(?:ing)?|accumulate|upgrad(?:e|ed|es)(?: to buy)?|initiates? (?:with )?buy|outperform|overweight)";
+       "(?:buy(?:ing)?|accumulate|upgrad(?:e|ed|es) to (?:buy|outperform|overweight)|initiates? (?:with )?buy|outperform|overweight)";
     private static final String SELL_TERMS =
-       "(?:sell(?:ing)?|exit|reduce|downgrad(?:e|ed|es)(?: to sell)?|underperform|underweight|avoid)";
+       "(?:sell(?:ing)?|exit|reduce|downgrad(?:e|ed|es) to (?:sell|underperform|underweight)|underperform|underweight|avoid)";
     public static final class Source {
         public final String name,tier;
         public final double weight;
@@ -92,6 +92,15 @@ public final class ResearchRules {
         // actionable attribution cannot be treated as recommendations.
         if(headline.contains("?") || t.matches(".*\\b(how to|what is|should you|explained|buy or sell|buy sell|buy hold or sell|stocks to watch)\\b.*"))
             return new Signal("WATCH","Question or generic market discussion");
+        if(t.matches(".*\\b(?:do not|dont|not|never|avoid) buy\\b.*")||
+           t.matches(".*\\b(?:do not|dont|not|never) sell\\b.*")||
+           t.contains("avoid selling")||t.contains("avoid buying"))
+            return new Signal("WATCH","Negated instruction is not a directional trade recommendation");
+        // Directional rating changes: the final rating supersedes the former one.
+        if(t.matches(".*\\b(?:from|previously) (?:sell|underperform) to buy\\b.*"))
+            return new Signal("BUY","Explicit rating transition to buy");
+        if(t.matches(".*\\b(?:from|previously) (?:buy|outperform) to sell\\b.*"))
+            return new Signal("SELL","Explicit rating transition to sell");
         String buy="\\b"+BUY_TERMS+"\\b";
         String sell="\\b"+SELL_TERMS+"\\b";
         boolean b=Pattern.compile(buy).matcher(t).find();
