@@ -19,8 +19,13 @@ public final class BrokerageCallExtractor {
         public final String institution,direction,evidence;
         public final Double target,entry,stop;
         public final String targetLabel;
+        public final boolean conflictingTarget;
         public Call(String i,String d,String e,Double t,Double en,Double sl,String lbl){
-            institution=i;direction=d;evidence=e;target=t;entry=en;stop=sl;targetLabel=lbl;
+            this(i,d,e,t,en,sl,lbl,false);
+        }
+        public Call(String i,String d,String e,Double t,Double en,Double sl,String lbl,boolean conflict){
+            institution=i;direction=d;evidence=e;target=t;entry=en;stop=sl;
+            targetLabel=lbl;conflictingTarget=conflict;
         }
     }
     private static final String[] INSTITUTIONS={
@@ -114,8 +119,13 @@ public final class BrokerageCallExtractor {
             if(direction.equals("SELL")&&stop<=entry)stop=null;
         }
         if(old!=null){
-            // Later, more specific sentences can enrich an earlier group
-            // headline but cannot overwrite already attributed price levels.
+            if(old.conflictingTarget)return;
+            if(old.target!=null&&target!=null&&Math.abs(old.target-target)>0.01){
+                // Title and source body disagree. Do not choose a number.
+                calls.put(k,new Call(old.institution,old.direction,old.evidence,
+                    null,old.entry,old.stop,"Conflicting published targets",true));
+                return;
+            }
             if(old.target!=null||old.entry!=null||old.stop!=null)return;
             if(target==null&&entry==null&&stop==null)return;
         }
@@ -175,11 +185,16 @@ public final class BrokerageCallExtractor {
         if(result.size()==1 && titleAboutStock && !multiHeadline){
             String key=result.keySet().iterator().next();
             Call original=result.get(key);
-            if(original.target==null&&original.entry==null&&original.stop==null
-                &&hasPhrase(head,original.institution)){
+            if(!original.conflictingTarget && hasPhrase(head,original.institution)){
                 Double t=find(EXPLICIT_TARGET,head);
-                if(t!=null)result.put(key,new Call(original.institution,
-                    original.direction,original.evidence,t,original.entry,original.stop,"Published target in headline"));
+                if(t!=null&&original.target!=null&&Math.abs(t-original.target)>0.01){
+                    result.put(key,new Call(original.institution,original.direction,
+                        original.evidence,null,original.entry,original.stop,
+                        "Headline and excerpt target discrepancy",true));
+                }else if(t!=null&&original.target==null){
+                    result.put(key,new Call(original.institution,original.direction,
+                        original.evidence,t,original.entry,original.stop,"Published target in headline"));
+                }
             }
         }
         return new ArrayList<>(result.values());
