@@ -135,15 +135,6 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
         }
         return out;
     }
-    private static String stance(String title){
-        String t=normalize(title);
-        boolean sell=t.matches(".*\\b(sell|selling|exit|reduce|downgrade|avoid|bearish|underperform|book profit|cuts rating)\\b.*");
-        boolean buy=t.matches(".*\\b(buy|buying|accumulate|upgrade|bullish|outperform|add rating|top pick|stock picks|stocks to buy)\\b.*");
-        if(buy&&sell)return "MIXED";
-        if(sell)return "SELL";
-        if(buy)return "BUY";
-        return "WATCH";
-    }
     private static String origin(String title,String publisher) {
         String n=normalize(title);
         String[] firms={"motilal oswal","icici direct","anand rathi","choice broking","prabhudas lilladher","hdfc securities","kotak securities","axis securities","emkay","jm financial","nuvama","jefferies","nomura","goldman sachs","morgan stanley","ubs","bernstein","citi","hsbc","bob capital","sharekhan","geojit"};
@@ -297,9 +288,14 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
                     if(publisher.isEmpty()&&title.contains(" - "))publisher=title.substring(title.lastIndexOf(" - ")+3);
                     String baseTitle=title;
                     if(title.endsWith(" - "+publisher))baseTitle=title.substring(0,title.length()-publisher.length()-3);
-                    String position=stance(baseTitle),published=iso(pub),source=origin(baseTitle,publisher);
-                    for(Mention m:findMentions(baseTitle))
-                        if(insert(m.symbol,baseTitle,publisher,link,published,position,source))out.inserted++;
+                    String published=iso(pub),source=origin(baseTitle,publisher);
+                    List<Mention> matches=findMentions(baseTitle);
+                    for(Mention m:matches){
+                        String position=matches.size()==1?
+                            ResearchRules.classify(baseTitle,m.symbol,m.name).direction:"WATCH";
+                        if(insert(m.symbol,baseTitle,publisher,link,published,position,source))
+                            out.inserted++;
+                    }
                 }
                 event=parser.next();
             }
