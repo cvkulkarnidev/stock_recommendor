@@ -72,7 +72,12 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
       "site:moneycontrol.com brokerages recommend stocks buy sell when:30d",
       "site:livemint.com markets stock recommendations analysts when:30d",
       "site:business-standard.com markets research report buy sell when:30d",
-      "Kotak Securities Axis Securities HDFC Securities stocks buy sell when:30d"
+      "Kotak Securities Axis Securities HDFC Securities stocks buy sell when:30d",
+      "\"Sumeet Bagadia\" stock pick target stop loss when:30d",
+      "\"Ganesh Dongre\" stocks target stop loss when:30d",
+      "\"Shiju Koothupalakkal\" stocks target stop loss when:30d",
+      "\"Raja Venkatraman\" stock recommendations when:30d",
+      "\"Vaishali Parekh\" stocks buy stop loss when:30d"
     };
     public static final class RefreshReport {
         public int articles, inserted, failures, requests;
@@ -82,12 +87,14 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
         final String symbol, name;
         Mention(String s,String n){symbol=s;name=n;}
     }
-    public DiscoveryEngine(Context c){super(c,"discovery_v2.db",null,1);}
+    public DiscoveryEngine(Context c){super(c,"discovery_v2.db",null,2);}
     @Override public void onCreate(SQLiteDatabase db) {
-        db.execSQL("CREATE TABLE coverage(symbol TEXT NOT NULL, title TEXT NOT NULL, publisher TEXT NOT NULL, url TEXT NOT NULL, published TEXT NOT NULL, captured TEXT NOT NULL, stance TEXT NOT NULL, origin TEXT NOT NULL, PRIMARY KEY(symbol,url))");
+        db.execSQL("CREATE TABLE coverage(symbol TEXT NOT NULL, title TEXT NOT NULL, publisher TEXT NOT NULL, url TEXT NOT NULL, published TEXT NOT NULL, captured TEXT NOT NULL, stance TEXT NOT NULL, origin TEXT NOT NULL, channel TEXT NOT NULL DEFAULT 'NEWS', PRIMARY KEY(symbol,url))");
         db.execSQL("CREATE INDEX idx_cov_symbol ON coverage(symbol)");
     }
-    @Override public void onUpgrade(SQLiteDatabase db,int oldVersion,int newVersion){}
+    @Override public void onUpgrade(SQLiteDatabase db,int oldVersion,int newVersion){
+        if(oldVersion<2)db.execSQL("ALTER TABLE coverage ADD COLUMN channel TEXT NOT NULL DEFAULT 'NEWS'");
+    }
     private static String normalize(String s){return s.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+"," ").replaceAll("\\s+"," ").trim();}
     private static boolean containsPhrase(String text,String phrase){return (" "+text+" ").contains(" "+normalize(phrase)+" ");}
     private static List<Mention> findMentions(String title){
@@ -151,9 +158,32 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
         v.put("stance",stance);v.put("origin",origin);
         return getWritableDatabase().insertWithOnConflict("coverage",null,v,SQLiteDatabase.CONFLICT_IGNORE)!=-1;
     }
+    private boolean insertIndexed(String symbol,SearchChannels.Hit hit){
+        if(hit.url==null||!hit.url.startsWith("https://")||hit.title==null)return false;
+        ContentValues v=new ContentValues();v.put("symbol",symbol);v.put("title",hit.title);
+        v.put("publisher",hit.channel.equals("REDDIT")?"Reddit indexed post":hit.channel.equals("X_INDEX")?"X indexed post":"Independent analyst indexed result");
+        v.put("url",hit.url);v.put("published","");
+        v.put("captured",now());v.put("stance","WATCH");
+        v.put("origin","index:"+hit.channel);v.put("channel",hit.channel);
+        return getWritableDatabase().insertWithOnConflict("coverage",null,v,SQLiteDatabase.CONFLICT_IGNORE)!=-1;
+    }
     public RefreshReport refresh() {
         RefreshReport report=new RefreshReport();
         for(String q:QUERIES) fetch(q,report);
+        SearchChannels.Result index=SearchChannels.search();
+        report.requests+=index.queries;report.failures+=index.failures.size();
+        for(String error:index.failures)if(report.errors.size()<5)report.errors.add(error);
+        for(SearchChannels.Hit hit:index.hits){
+            report.articles++;
+            List<Mention> mentions=findMentions(hit.title);
+            if(mentions.isEmpty())mentions=findMentions(hit.description);
+            int added=0;
+            for(Mention m:mentions){
+                if(added>=3)break;
+                if(insertIndexed(m.symbol,hit))report.inserted++;
+                added++;
+            }
+        }
         // Targeted investigations for stocks discovered from real article headlines.
         List<String> candidates=topSymbols(8);
         for(String symbol:candidates){
@@ -169,6 +199,8 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
         if(!name.isEmpty()) {
             fetch("\""+name+"\" stock recommendation buy sell brokerage when:30d",r);
             fetch("\""+name+"\" target price swing trade analysts when:30d",r);
+            fetch("\""+name+"\" \"Sumeet Bagadia\" OR \"Ganesh Dongre\" stock buy sell when:30d",r);
+            fetch("\""+name+"\" \"Shiju Koothupalakkal\" OR \"Raja Venkatraman\" when:30d",r);
         }
         return r;
     }
