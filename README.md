@@ -115,3 +115,13 @@ size, duplicated headlines or mentions on social networks.
 This is a **scalable candidate-source discovery layer**, not unrestricted
 scraping of each of those websites. Extracting verified full-text brokerage
 recommendations still requires provider-specific permitted feeds or agreements.
+
+## v0.7 — Broker-by-broker signal audit
+
+The Hindalco research audit (see [dated evidence report](docs/HINDALCO_SIGNAL_AUDIT_2026-11-11.md)) found that several independent brokers can be quoted **inside one article**. One publisher is NOT one analyst opinion. Stock Details now displays distinct attributed brokerage/analyst signals with separate BUY/SELL, entry, target and stop-loss fields.
+
+The app extracts named opinions from public headlines and RSS excerpts; contradictory prices from headline and excerpt are withheld instead of silently choosing one. “CMP” is not automatically labelled a recommended entry. It reports actual source dates and URLs, and opposing ratings remain visible. The Hindalco audit specifically flags an ICICI Securities headline ₹1,204 / article-body ₹1,200 discrepancy.
+
+When manual Deep Search retrieves a directly linked page from a narrowly allowed public publisher (Business Today or Business Standard), it first consults that publisher's **robots.txt** and only reads accessible public HTML. Unsupported, disallowed, unavailable or paywalled pages are skipped. Only brief relevant evidence passages are retained; full article bodies are not republished. This does not make all 125 candidate domains independently verified or guarantee full report coverage.
+
+CI runs `BrokerageCallExtractorTest`, `PublicArticleReaderTest`, the previous trade-price/BUY-SELL tests, then builds/uploads the APK. Regex tests represent selected failure modes, not mathematical proof of correct classification across the entire web.
