@@ -1,4 +1,4 @@
-# Stock Intelligence — Android v0.4
+# Stock Intelligence — Android v0.5
 
 A **local-first, discovery-first Android research app for Indian stocks**. You do not need to enter a stock to begin. Press **Refresh market** and the phone searches public financial-news RSS coverage, extracts stock mentions, classifies explicit directional headlines, performs secondary stock-specific searches, and ranks a monitored NSE universe.
 
@@ -63,3 +63,26 @@ CI includes the recommendation classification unit tests before APK packaging.
 
 
 CI verification: entry-price parser now recognizes directional calls where the stock name precedes the quoted price.
+
+## v0.5 — Per-stock Deep Search, source snippets, query expansion, and regex audit
+
+**Start:** Explore → **Deep Search across portals**, enter an NSE ticker or a company in the built-in universe. Alternatively open a stock and tap **Deep Search all portals for this stock**. The app performs 25 distinct rewrites targeting:
+- Original publicly indexed brokerage research (ICICI Direct, Motilal Oswal, HDFC Securities, Anand Rathi, Sharekhan, etc.)
+- Indian financial news (Mint, Moneycontrol, Business Standard, Economic Times, Financial Express)
+- Named independent analysts (Bagadia, Dongre, Parekh, Koothupalakkal, Venkatraman)
+- Search-indexed Reddit and X posts (Bing RSS). These are NOT direct Reddit/X API calls.
+
+Results include article titles, *public RSS excerpts when supplied*, source URL, publication date if provided by the publisher, and the query group that found them. **Indexed Reddit/X/Bing dates are not treated as original publication dates and never influence recommendation confidence.** Actual page bodies (including full brokerage PDFs) are not scraped by default: permission, paywall, and attribution requirements differ by publisher. More coverage is not guaranteed; empty/unavailable searches are reported honestly.
+
+Only clearly attributed dated Google News RSS BUY/SELL evidence can contribute to confidence. Duplicates, multi-stock roundup headlines, and unknown dates are excluded. Entry, target and stop-loss are extracted where explicitly present in a single-stock headline or public RSS excerpt, with contradictions suppressed. A number shown in the app is **not independently verified against the original signed research report**. Open its link before any trading decision.
+
+### Regex and query-plan verification
+
+CI executes extensive JUnit regression examples for:
+- BUY / SELL classification, negations, ambiguous rating changes, mixed and unrelated-company news
+- Rupees, Rs, INR, decimals, Indian comma formatting; entry, target, stop-loss, reversed labels
+- Missing prices, percent-only and hypothetical price claims, invalid trading geometry
+- 25 generated stock-specific queries, including brokerage/news/analyst/Reddit/X index categories
+- JavaScript syntax and Android APK build checks (build is not equivalent to live-data verification)
+
+**Limitations:** This release is a local discovery tool, not exhaustive or audited investment advice. Manual refresh requires internet. Free RSS feeds can change, rate limit, or remove access. No automatic trading, no paid providers, and no cloud backend.
