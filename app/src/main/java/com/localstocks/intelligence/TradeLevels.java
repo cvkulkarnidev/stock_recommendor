@@ -51,7 +51,7 @@ public final class TradeLevels {
         // second recommendation, date, or lengthy unrelated prose.
         String between="(?:(?!\\b(?:target|tgt|objective|stop|loss|sl|tp|buy|sell|short)\\b)[^.;\\n]){0,56}";
         Pattern pattern=Pattern.compile("(?i)\\b(?:buy|sell|short|accumulate)\\b"+between+
-            "\\b(?:at|near|around|above|below|between)\\b\\s*("+PRICE+")");
+            "(?:\\b(?:at|near|around|above|below|between)\\b|@)\\s*("+PRICE+")");
         Matcher m=pattern.matcher(text);
         return m.find()?read(m,1):null;
     }
