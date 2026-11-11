@@ -217,7 +217,8 @@ return '<div class="detail-head"><button class="back" onclick="appBack()">‹ Ba
 '<div class="detail-section"><div class="split"><h3>Source evidence</h3><span class="tag">'+x.coverage+' articles</span></div>'+
 x.evidence.map(function(n){
 return '<div class="story"><div class="story-actions"><span class="pill-small '+n.stance.toLowerCase()+'">'+esc(n.stance)+'</span><span class="small-note">'+(n.counted?"Counted in score":"Context / duplicate / non-directional")+'</span></div>'+
-'<div class="story-title" style="margin-top:10px">'+esc(n.title)+'</div><div class="story-meta">'+esc(n.publisher||"Unspecified publisher")+' · '+esc(dateText(n.published))+'</div>'+
+'<div class="story-title" style="margin-top:10px">'+esc(n.title)+'</div><div class="story-meta">'+esc(n.publisher||"Unspecified publisher")+' · Published '+esc(dateText(n.published))+' · '+esc(n.sourceTier==="NAMED_BROKER"||n.sourceTier==="BROKER_PUBLISHER"?"Curated brokerage":n.sourceTier==="CURATED_NEWS"?"Curated publication":"Other source")+'</div>'+
+'<div class="small-note">Attributed source: '+esc(n.sourceName)+' · '+esc(n.reason)+'</div>'+
 '<button class="textlink" onclick="openSource(\''+encodeURIComponent(n.url)+'\')">Open original coverage ↗</button></div>';
 }).join("")+'</div>';
 }
@@ -236,7 +237,7 @@ return '<div class="title-row"><div><div class="section-title">Source coverage</
 }
 function aboutPage(){
 return '<div class="title-row"><div><div class="section-title">How this works</div><div class="section-caption">Transparent, offline-first stock research</div></div></div>'+
-'<div class="detail-section"><h3>What Refresh does</h3><p class="small-note">Searches 14 Indian-financial-news RSS queries, then investigates up to 8 of the most mentioned directional stock candidates. It scans an initial universe of '+state.universe+' recognizable Indian equities. Select Today, 2, 3, 7, 14 or 30 days to filter by original article publication date. A separate saved timestamp records the latest successful data refresh.</p></div>'+
+'<div class="detail-section"><h3>What Refresh does</h3><p class="small-note">Searches 18 Indian-financial-news RSS queries, then investigates up to 8 of the most mentioned directional stock candidates. It scans an initial universe of '+state.universe+' recognizable Indian equities. Select Today, 2, 3, 7, 14 or 30 days to filter by original article publication date. A separate saved timestamp records the latest successful data refresh.</p></div>'+
 '<div class="detail-section"><h3>Evidence scoring / 100</h3><p class="small-note">Directional agreement (up to 20), independent research origins (up to 20), curated-source quality (up to 25), freshness (up to 10), and explicit stock-linked headline direction (up to 10). Maximum <b>85/100</b> pending audited real performance. Choose a publication window (1, 2, 3, 7, 14 or 30 days) to completely recalculate results using only recent evidence.</p>'+
 '<p class="small-note">Same-origin sources and identical syndicated headlines do not increase the score. Conflicting and neutral coverage remains visible. A headline is not an executed trade. “BUY” and “SELL” reflect explicit words in published headlines, not the app issuing trade advice.</p></div>'+
 '<div class="detail-section"><h3>Privacy and cost</h3><p class="small-note">No account, backend, cloud database, API key, or subscription. Data remains in local SQLite; watchlists remain on-device. Manual refresh uses public Google News RSS search. Availability and publication terms are controlled by the provider. The app does not bypass site restrictions or collect full paywalled articles.</p></div>'+
