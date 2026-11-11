@@ -180,7 +180,16 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
         v.put("captured",now());v.put("stance","WATCH");v.put("origin","deep:"+hit.channel);
         v.put("channel",hit.provider.equals("GOOGLE")?"NEWS":"INDEX_"+hit.channel);
         v.put("excerpt",hit.excerpt);v.put("query_label",hit.channel+" / "+hit.provider);
-        return getWritableDatabase().insertWithOnConflict("coverage",null,v,SQLiteDatabase.CONFLICT_IGNORE)!=-1;
+        long inserted=getWritableDatabase().insertWithOnConflict("coverage",null,v,SQLiteDatabase.CONFLICT_IGNORE);
+        if(inserted==-1&&!hit.excerpt.isEmpty()){
+            // Keep original publication/attribution; only enrich prior headline
+            // discovery with an additional publicly supplied RSS excerpt.
+            ContentValues enrichment=new ContentValues();
+            enrichment.put("excerpt",hit.excerpt);enrichment.put("query_label",hit.channel+" / "+hit.provider);
+            getWritableDatabase().update("coverage",enrichment,
+                "symbol=? AND url=? AND excerpt=''",new String[]{symbol,hit.url});
+        }
+        return inserted!=-1;
     }
     private static boolean mentionsDeepStock(String text,String symbol,String company){
         if(text==null)return false;
@@ -372,7 +381,8 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
             seenTitles.add(titleKey);
             String origin=src.tier.equals("NAMED_BROKER")||src.tier.equals("BROKER_PUBLISHER")||src.tier.equals("NAMED_ANALYST")
                ?"identified:"+normalize(src.name):"publisher:"+normalize(n.publisher);
-            boolean eligible=signal.direction.equals("BUY")||signal.direction.equals("SELL");
+            boolean eligible=(signal.direction.equals("BUY")||signal.direction.equals("SELL"))
+                &&findMentions(n.title).size()==1;
             // An identical headline, or repeated content attributed to the same
             // original broker/publisher, can contribute at most one vote per stock.
             boolean counted=eligible&&!duplicate&&!independent.containsKey(origin);
