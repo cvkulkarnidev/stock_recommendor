@@ -39,6 +39,10 @@ public final class TradeLevels {
             return new Levels(null,null,null,"");
         Double entry=tagged(headline,"(?:buy|sell|entry|enter|buying|selling)\\s*(?:zone|range|price|level)?");
         if(entry==null)entry=reverse(headline,"(?:buy|sell|entry)(?:\\s+level)?");
+        // Common phrasing: "Buy HDFC Bank at Rs 1,250". At the call site
+        // direction is already attributable to exactly one recognized stock.
+        if(entry==null && headline.toLowerCase(Locale.ROOT).matches(".*\\b(?:buy|sell|entry|accumulate)\\b.*"))
+            entry=tagged(headline,"(?:at|near|around|above|below)");
         Double target=tagged(headline,"(?:target|targets|target price|price target|tp|objective)");
         if(target==null)target=reverse(headline,"(?:target|target price|price target)");
         Double stop=tagged(headline,"(?:stop[ -]?loss|sl|stop)");
