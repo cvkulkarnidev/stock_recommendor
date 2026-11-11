@@ -61,3 +61,5 @@ CI includes the recommendation classification unit tests before APK packaging.
 - The stock cards and details show per-source price levels wherever found; do not trade without opening the source and confirming validity and publication time. Social index-only results do not receive historical-trade confidence.
 - Build CI now runs `TradeLevelsTest` and `ResearchRulesTest` prior to APK compilation.
 
+
+CI validation note: verify headline price parsing unit tests, Android compilation and non-empty APK upload before release.
