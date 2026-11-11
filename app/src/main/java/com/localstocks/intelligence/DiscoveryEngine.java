@@ -334,7 +334,7 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
                     j.put("counted",counted);j.put("sourceName",src.name);j.put("sourceTier",src.tier);
                     j.put("sourceWeight",src.weight);
                     TradeLevels.Levels levels=TradeLevels.extract(n.title,signal.direction);
-                    if(counted&&levels.hasAny()){
+                    if(counted&&levels.hasAny()&&findMentions(n.title).size()==1){
                         if(levels.entry!=null)j.put("entryPrice",levels.entry);
                         if(levels.target!=null)j.put("targetPrice",levels.target);
                         if(levels.stop!=null)j.put("stopLoss",levels.stop);
