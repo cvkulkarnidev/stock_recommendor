@@ -100,7 +100,7 @@ public final class BrokerageCallExtractor {
     private static void put(Map<String,Call> calls,String institution,String direction,String evidence,boolean canAssignLevels){
         if(direction.equals("WATCH")||direction.equals("MIXED"))return;
         String k=norm(canonical(institution));
-        if(calls.containsKey(k))return;
+        Call old=calls.get(k);
         Double target=canAssignLevels?find(EXPLICIT_TARGET,evidence):null;
         Double entry=canAssignLevels?find(SIMPLE_ENTRY,evidence):null;
         Double stop=canAssignLevels?find(SIMPLE_STOP,evidence):null;
@@ -112,6 +112,12 @@ public final class BrokerageCallExtractor {
         if(entry!=null&&stop!=null){
             if(direction.equals("BUY")&&stop>=entry)stop=null;
             if(direction.equals("SELL")&&stop<=entry)stop=null;
+        }
+        if(old!=null){
+            // Later, more specific sentences can enrich an earlier group
+            // headline but cannot overwrite already attributed price levels.
+            if(old.target!=null||old.entry!=null||old.stop!=null)return;
+            if(target==null&&entry==null&&stop==null)return;
         }
         calls.put(k,new Call(canonical(institution),direction,evidence,target,entry,stop,
             evidence.toLowerCase(Locale.ROOT).contains("fv")?"Fair value":"Published target"));
@@ -131,6 +137,10 @@ public final class BrokerageCallExtractor {
             if(direction.equals("WATCH")||direction.equals("MIXED"))continue;
             boolean stockHere=hasStock(piece,symbol,company);
             if(!stockHere && (!titleAboutStock||multiHeadline))continue;
+            // "UBS buys Britannia" in an article about Hindalco is not a
+            // Hindalco BUY. Refuse to inherit headlines across explicit
+            // "on/for <other company>" clauses.
+            if(!stockHere && piece.matches("(?i).*\\b(?:buy|sell|rating|recommendation)\\s+(?:on|for)\\s+[A-Z][a-zA-Z]+.*"))continue;
             List<String> names=new ArrayList<>();
             for(String institution:INSTITUTIONS)if(hasPhrase(piece,institution)) {
                 String canonical=canonical(institution);
@@ -157,6 +167,19 @@ public final class BrokerageCallExtractor {
                     put(result,name,direction,head,true);
                     break;
                 }
+            }
+        }
+        // Some wire-service headlines carry the broker and quoted target,
+        // while the RSS snippet carries its actual Buy/Sell rating.
+        // Merge the two only when there is exactly one attributed broker.
+        if(result.size()==1 && titleAboutStock && !multiHeadline){
+            String key=result.keySet().iterator().next();
+            Call original=result.get(key);
+            if(original.target==null&&original.entry==null&&original.stop==null
+                &&hasPhrase(head,original.institution)){
+                Double t=find(EXPLICIT_TARGET,head);
+                if(t!=null)result.put(key,new Call(original.institution,
+                    original.direction,original.evidence,t,original.entry,original.stop,"Published target in headline"));
             }
         }
         return new ArrayList<>(result.values());
