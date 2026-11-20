@@ -124,7 +124,10 @@ public final class MainActivity extends Activity {
             try{
                 String company=discovery.symbolName(s);
                 if(company.isEmpty())company=s;
-                DiscoveryEngine.DeepReport r=discovery.deepSearch(s,company);
+                DiscoveryEngine.DeepReport r=discovery.deepSearch(s,company,
+                    (done,total,success,hits,skipped)->sendStatus(true,
+                        "Deep Search "+s+": "+done+"/"+total+" queries checked · "+
+                        success+" successful · "+hits+" public leads · "+skipped+" skipped",false));
                 deepReport="Deep Search "+s+" · "+r.candidateDomains+" candidate domains targeted · "+
                     r.observedDomains+" stock-matched URL hosts · "+r.observedPublishers+" named publishers · "+r.publicArticlesRead+" public articles read · "+r.publicArticlesBlocked+" inaccessible/blocked · "+r.successes+"/"+r.queries+
                     " completed searches · "+r.found+" stock-matched hits · "+r.saved+
