@@ -90,7 +90,6 @@ public final class EvidenceGate {
         add(checks,"At least 3 distinct BUY institutions","Entry-level agreement; repeated articles count once",buys>=3);
         add(checks,"At least 5 distinct BUY institutions","Broader independent research",buys>=5);
         add(checks,"At least 10 distinct BUY institutions","Minimum independent-opinion target",buys>=10);
-        add(checks,"At least 12 distinct BUY institutions","Stronger breadth milestone",buys>=12);
         add(checks,"At least 15 distinct BUY institutions","Highest breadth milestone",buys>=15);
         add(checks,"Few contradictory SELL opinions","At most one opposing SELL for every four BUYs",buys>0&&sells*4<=buys);
         add(checks,"At least 3 institutional brokerage BUYs","Named firms, not repeated news publishers",brokers>=3);
