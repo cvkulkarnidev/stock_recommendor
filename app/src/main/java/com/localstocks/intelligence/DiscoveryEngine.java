@@ -571,6 +571,29 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
                 verifiedInstitutions.put(institution);
             }
             o.put("institutionCalls",verifiedInstitutions);
+            java.util.List<EvidenceGate.Opinion> opinions=new java.util.ArrayList<>();
+            for(Ranked rr:independent.values()){
+                BrokerageCallExtractor.Call call=rr.call;
+                boolean independentAnalyst="NAMED_ANALYST".equals(rr.src.tier);
+                opinions.add(new EvidenceGate.Opinion(rr.src.name,rr.signal.direction,
+                    rr.news.publisher,rr.news.url,rr.news.published,
+                    call==null?null:call.entry,call==null?null:call.target,
+                    call==null?null:call.stop,independentAnalyst));
+            }
+            EvidenceGate.Result readiness=EvidenceGate.evaluate(opinions);
+            JSONObject gate=new JSONObject();
+            gate.put("status",readiness.recommendation);
+            gate.put("buy",readiness.buy);gate.put("sell",readiness.sell);
+            gate.put("qualityPassed",readiness.qualityPassed);
+            gate.put("qualityTotal",readiness.checks.size());
+            JSONArray checks=new JSONArray();
+            for(EvidenceGate.Check ch:readiness.checks){
+                JSONObject item=new JSONObject();
+                item.put("label",ch.label);item.put("detail",ch.explanation);
+                item.put("passed",ch.passed);checks.put(item);
+            }
+            gate.put("checks",checks);
+            o.put("readiness",gate);
             JSONObject firstLevels=new JSONObject();
             for(int i=0;i<evidence.length();i++){
                 JSONObject e=evidence.optJSONObject(i);
@@ -589,7 +612,11 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
                 supports+" supporting and "+opposes+" opposing independently grouped headline calls. "+
                 known+" from curated source names, "+other+" from other publishers. "+
                 "Trusted names receive more weight, not automatic proof of accuracy. "+
-                "Score is evidence-based, capped at 85 without audited outcome data.");
+                "Score is evidence-based, capped at 85 without audited outcome data. "+
+                (readiness.qualifies(10)?"At least ten distinct BUY institutions and quality checks met.":
+                    "Insufficient evidence for a high-conviction call: "+readiness.buy+
+                    " of 10 minimum independent bullish institutions; "+readiness.qualityPassed+
+                    " of 15 evidence checks passed."));
         }catch(Exception ignored){}
         return o;
     }
