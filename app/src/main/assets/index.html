@@ -129,15 +129,18 @@ header{padding:22px 0 17px;display:flex;align-items:center;justify-content:space
 <div class="bottom-nav"><div class="nav-content" id="navbar"></div></div>
 <script>
 "use strict";
-var state={stocks:[],universe:0,candidateSites:0,targetedSites:0,updated:"",refreshing:false,message:"",error:"",tab:"Explore",filter:"All",query:"",detail:null,watch:[],dataReceived:false,windowDays:7,curatedBrokers:[],curatedPublishers:[],curatedAnalysts:[],indexedLeads:[],deepStock:"",deepReport:"",deepQuery:"",indexedFilter:""};
+var state={stocks:[],universe:0,candidateSites:0,targetedSites:0,updated:"",refreshing:false,message:"",error:"",tab:"Explore",filter:"All",query:"",detail:null,watch:[],dataReceived:false,windowDays:7,curatedBrokers:[],curatedPublishers:[],curatedAnalysts:[],indexedLeads:[],deepStock:"",deepReport:"",deepQuery:"",indexedFilter:"",gateRequired:10};
 try{state.watch=JSON.parse(localStorage.getItem("watchlist")||"[]");}catch(e){state.watch=[];}
+try{var savedGate=Number(localStorage.getItem("gateRequired"));if([10,12,15].includes(savedGate))state.gateRequired=savedGate;}catch(e){}
 function esc(v){return String(v===null||v===undefined?"":v).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]});}
 function dateText(s){if(!s)return "Date not supplied";var d=new Date(s);if(isNaN(d.getTime()))return s.slice(0,10);return d.toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"});}
-function currentStocks(){var a=state.stocks.slice();if(state.tab==="Saved")a=a.filter(function(x){return state.watch.indexOf(x.symbol)>=0});if(state.filter!=="All")a=a.filter(function(x){return x.direction===state.filter});var q=state.query.trim().toLowerCase();if(q)a=a.filter(function(x){return (x.symbol+" "+x.name).toLowerCase().includes(q)});return a;}
+function currentStocks(){var a=state.stocks.slice();if(state.tab==="Saved")a=a.filter(function(x){return state.watch.indexOf(x.symbol)>=0});if(state.filter!=="All")a=a.filter(function(x){return state.filter==="READY"?isReady(x):x.direction===state.filter});var q=state.query.trim().toLowerCase();if(q)a=a.filter(function(x){return (x.symbol+" "+x.name).toLowerCase().includes(q)});return a;}
 function badge(v){return '<span class="badge '+v.toLowerCase()+'">'+esc(v==="WATCH"?"WATCH":v)+'</span>'}
 function formatAgo(iso){if(!iso)return "Never";var delta=Math.max(0,Date.now()-new Date(iso).getTime());if(delta<3600000)return "Updated just now";if(delta<86400000)return "Updated "+Math.floor(delta/3600000)+"h ago";return "Updated "+Math.floor(delta/86400000)+"d ago";}
 function appBack(){if(state.detail){state.detail=null;draw();return;}if(state.tab!=="Explore"){state.tab="Explore";draw();}}
 function tabTo(x){state.tab=x;state.detail=null;state.filter="All";state.query="";draw();}
+function isReady(x){var g=x.readiness||{};return Number(g.buy||0)>=state.gateRequired && Number(g.qualityPassed||0)>=10 && Number(g.sell||0)*4<=Number(g.buy||0);}
+function gateTo(n){state.gateRequired=n;try{localStorage.setItem("gateRequired",String(n));}catch(e){}draw();}
 function filterTo(x){state.filter=x;draw();}
 function timeTo(x){state.windowDays=x;if(window.StockNative)StockNative.setWindow(x);draw();}
 function queryTo(q){state.query=q;drawListOnly();}
@@ -203,18 +206,23 @@ function stockCard(x){
 var agree=x.buy+x.sell, pct=Math.max(0,Math.min(100,x.confidence));
 return '<article class="stock-card" onclick="openStock(\''+esc(x.symbol)+'\')"><div class="card-top">'+
 '<div style="display:flex;align-items:center;gap:11px;min-width:0"><div class="ticker-logo">'+esc(x.symbol.substring(0,2))+'</div><div style="min-width:0"><div class="ticker-title">'+esc(x.symbol)+'</div><div class="company">'+esc(x.name)+'</div></div></div>'+badge(x.direction)+'</div>'+
+'<div style="margin-top:14px;font-size:12px;font-weight:750;color:'+(isReady(x)?'var(--green)':'var(--gold)')+'">'+(isReady(x)?'✓ HIGH EVIDENCE':'◌ NOT YET QUALIFIED')+' · '+Number((x.readiness||{}).buy||0)+' / '+state.gateRequired+' distinct bullish institutions</div>'+
+'<div class="small-note" style="margin-top:4px">Quality checks '+Number((x.readiness||{}).qualityPassed||0)+' / 15 · At most 1 SELL per 4 BUYs</div>'+
 '<div class="evidence-grid"><div><div class="conf-label">Evidence confidence</div><div class="conf-value"><strong>'+x.confidence+'</strong><span>/100</span></div><div class="bar"><div style="width:'+pct+'%"></div></div></div>'+
 '<div><div class="conf-label">Distinct directional opinions</div><div class="source-count">'+agree+'</div><div class="signal-meter"><span class="green"><i class="dot" style="background:var(--green)"></i>'+x.buy+' Buy</span><span class="red"><i class="dot" style="background:var(--red)"></i>'+x.sell+' Sell</span></div></div></div>'+
 (x.sampleLevels && (x.sampleLevels.entry||x.sampleLevels.target||x.sampleLevels.stop)?'<div class="two-col" style="grid-template-columns:repeat(3,1fr);margin-top:14px"><div class="statbox"><div class="lbl">Entry</div><div style="font-size:12px;font-weight:700">'+rupee(x.sampleLevels.entry)+'</div></div><div class="statbox"><div class="lbl">Target</div><div style="font-size:12px;font-weight:700">'+rupee(x.sampleLevels.target)+'</div></div><div class="statbox"><div class="lbl">Stop-loss</div><div style="font-size:12px;font-weight:700">'+rupee(x.sampleLevels.stop)+'</div></div></div>':'')+
 '<div class="card-foot"><span>'+x.curatedSources+' curated · '+x.otherSources+' other<br>Latest: '+esc(dateText(x.lastPublished))+'</span><span class="foot-more">View evidence ›</span></div></article>';
 }
 function timeFilters(){var choices=[[1,"Today"],[2,"2 days"],[3,"3 days"],[7,"7 days"],[14,"14 days"],[30,"30 days"]];return '<div style="margin:0 0 8px"><div class="conf-label" style="margin-bottom:7px">PUBLICATION WINDOW · RE-SCORE BY AGE</div><div class="chips">'+choices.map(function(x){return '<button class="chip '+(state.windowDays===x[0]?'active':'')+'" onclick="timeTo('+x[0]+')">'+x[1]+'</button>';}).join("")+'</div></div>';}
+function gateChooser(){
+return '<div style="margin-bottom:12px"><div class="conf-label" style="margin-bottom:7px">MINIMUM DISTINCT BULLISH INSTITUTIONS · HIGH-CONVICTION GATE</div><div class="chips">'+[10,12,15].map(function(n){return '<button class="chip '+(state.gateRequired===n?'active':'')+'" onclick="gateTo('+n+')">'+n+' BUY calls</button>';}).join("")+'</div><p class="small-note" style="margin:0">Repeated news coverage from the same underlying brokerage counts as one. Passing also requires 10/15 evidence-quality checks and limited conflicting SELL calls.</p></div>';
+}
 function listSection(){
-var stocks=currentStocks(), filters=["All","BUY","SELL","MIXED","WATCH"];
+var stocks=currentStocks(), filters=["All","READY","BUY","SELL","MIXED","WATCH"];
 return '<div class="title-row"><div><div class="section-title">'+(state.tab==="Saved"?"Saved watchlist":"Discovered stocks")+'</div>'+
 '<div class="section-caption">Ranked using dated research, source trust and independent agreement</div></div><div class="count">'+stocks.length+' results</div></div>'+
 '<div class="search-wrap"><svg viewBox="0 0 24 24"><circle cx="10.7" cy="10.7" r="6.3"/><path d="m16 16 5 5"/></svg><input id="stockSearch" placeholder="Search symbol or company" oninput="queryTo(this.value)" value="'+esc(state.query)+'"></div>'+
-'<div class="chips">'+filters.map(function(f){return '<button class="chip '+(f===state.filter?'active':'')+'" onclick="filterTo(\''+f+'\')">'+(f==="All"?"All signals":f)+"</button>";}).join("")+'</div>'+timeFilters()+
+'<div class="chips">'+filters.map(function(f){return '<button class="chip '+(f===state.filter?'active':'')+'" onclick="filterTo(\''+f+'\')">'+(f==="All"?"All signals":f==="READY"?"10+ strong":" "+f)+"</button>";}).join("")+'</div>'+gateChooser()+timeFilters()+
 '<div id="stockList">'+listContent(stocks)+'</div>';
 }
 function listContent(stocks){
@@ -246,10 +254,13 @@ return '<div class="detail-head"><button class="back" onclick="appBack()">‹ Ba
 '<div class="small-note" style="margin-top:13px">Latest published source: '+esc(dateText(x.lastPublished))+' · Last successful refresh: '+esc(state.updated?dateText(state.updated):"Never")+' · Window: '+x.windowDays+' day(s)</div>'+
 '<div class="two-col"><div class="statbox"><div class="num">'+x.confidence+'<span class="muted" style="font-size:12px">/100</span></div><div class="lbl">Provisional evidence score (max 85)</div></div><div class="statbox"><div class="num">'+x.sources+'</div><div class="lbl">Grouped directional sources</div></div>'+
 '<div class="statbox"><div class="num green">'+x.buy+'</div><div class="lbl">Supporting BUY opinions</div></div><div class="statbox"><div class="num red">'+x.sell+'</div><div class="lbl">Supporting SELL opinions</div></div></div>'+
+'<div class="detail-section" style="margin-top:16px;background:#172b3c"><div class="split"><div><h3>Decision evidence gate</h3><p class="small-note">Distinct dated bullish institutions: '+Number((x.readiness||{}).buy||0)+' / '+state.gateRequired+'</p></div><span class="tag">'+(isReady(x)?'QUALIFIED':'INSUFFICIENT')+'</span></div>'+
+'<p class="small-note">Passed '+Number((x.readiness||{}).qualityPassed||0)+' of 15 source-quality checks. The checklist includes breadth milestones, so these are NOT 15 independent recommendations or validated predictions.</p>'+
+((x.readiness||{}).checks||[]).map(function(check){return '<div style="display:flex;gap:9px;padding:8px 0;border-bottom:1px solid #2d4055"><span style="color:'+(check.passed?'var(--green)':'var(--muted)')+'">'+(check.passed?'✓':'○')+'</span><div><div style="font-size:12px;font-weight:650">'+esc(check.label)+'</div><div class="small-note">'+esc(check.detail)+'</div></div></div>';}).join("")+'</div>'+
 '<p class="small-note">'+esc(x.explanation)+'</p>'+
 '<button class="primary" style="width:100%;margin-top:8px" '+(state.refreshing?'disabled':'')+' onclick="investigate(\''+esc(x.symbol)+'\')">⌕ &nbsp; Deep Search all portals for this stock</button>'+
 '</div>'+statusHtml()+
-'<div class="notice">Confidence is <b>source-weighted named brokerage/analyst signals when attributable from a headline or public RSS excerpt</b>, not a likelihood of profit. Curated means a known source name, not an audited successful analyst. BUY/SELL terms must appear close to the named stock; ambiguous discussions remain WATCH. Review the original report before acting.</div>'+
+'<div class="notice">A positive research consensus is NOT an instruction to buy. Strong-evidence status requires at least '+state.gateRequired+' distinct BUY institutions, 10 of 15 evidence checks and limited SELL disagreement. Confidence is <b>source-weighted named brokerage/analyst signals when attributable from a headline or public RSS excerpt</b>, not a likelihood of profit. Curated means a known source name, not an audited successful analyst. BUY/SELL terms must appear close to the named stock; ambiguous discussions remain WATCH. Review the original report before acting.</div>'+
 '<div class="detail-section"><div class="split"><h3>Independent brokerage / analyst calls</h3><span class="tag">'+(x.institutionCalls||[]).length+' calls</span></div>'+
 '<p class="small-note">Each named institution contributes at most one current opinion in the selected date window. Multiple news portals repeating one call do not create more votes. Underlying signed reports are not automatically verified.</p>'+
 ((x.institutionCalls||[]).length?(x.institutionCalls||[]).map(function(c){
