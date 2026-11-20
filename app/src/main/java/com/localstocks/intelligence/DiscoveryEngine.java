@@ -213,7 +213,10 @@ public final class DiscoveryEngine extends SQLiteOpenHelper {
         public final java.util.List<String> errors=new java.util.ArrayList<>();
     }
     public DeepReport deepSearch(String symbol,String company){
-        DeepResearch.Report source=DeepResearch.run(symbol,company);
+        return deepSearch(symbol,company,null);
+    }
+    public DeepReport deepSearch(String symbol,String company,DeepResearch.Progress progress){
+        DeepResearch.Report source=DeepResearch.run(symbol,company,progress);
         DeepReport r=new DeepReport();
         r.queries=source.queries;r.successes=source.succeeded;
         r.candidateDomains=source.candidateDomains;
