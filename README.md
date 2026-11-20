@@ -125,3 +125,31 @@ The app extracts named opinions from public headlines and RSS excerpts; contradi
 When manual Deep Search retrieves a directly linked page from a narrowly allowed public publisher (Business Today or Business Standard), it first consults that publisher's **robots.txt** and only reads accessible public HTML. Unsupported, disallowed, unavailable or paywalled pages are skipped. Only brief relevant evidence passages are retained; full article bodies are not republished. This does not make all 125 candidate domains independently verified or guarantee full report coverage.
 
 CI runs `BrokerageCallExtractorTest`, `PublicArticleReaderTest`, the previous trade-price/BUY-SELL tests, then builds/uploads the APK. Regex tests represent selected failure modes, not mathematical proof of correct classification across the entire web.
+
+## v0.8: Exhaustive research + strong-evidence thresholds
+
+**Do not count headlines or search queries as independent recommendations.** Deep Search now expands stock/company searches across:
+- 20 additional rating and risk-language variants (BUY, accumulate, upgrade, overweight, sell, target cut, technical entry, stop-loss, etc.);
+- 30 separately named brokerage and independent-analyst searches;
+- grouped site-target queries across more than 100 candidate brokerage, research and financial-news hosts **using both free Bing RSS and Google News RSS**;
+- previously implemented analyst/social-index searches, without paid APIs or access bypass.
+
+The per-stock query plan can exceed 100 requests. It runs only on manual activation, updates the interface every five queries and stops repeatedly failing providers. This is an intentionally deeper, longer, more thorough **search attempt**, not a guarantee that an engine indexes all targets. The actual number of completed searches, failures, returned hits and distinct publishers is displayed, not assumed.
+
+### Strong-evidence gate
+
+Choose a minimum of **10, 12 or 15 distinct BUY institutions**. Each named brokerage or analyst can count at most once within the selected publication window, even if ten news publishers repeat the same recommendation. Opposing SELL views are counted separately. A stock is marked qualified **only when**:
+
+1. At least the chosen number of distinct, named bullish institutions are found in the chosen time window (default 10).
+2. At least 10 of 15 measurable evidence-quality checks pass.
+3. Opposing SELL calls do not exceed one quarter of BUY opinions.
+
+The 15 checks include breadth milestones, contradictory opinions, institutional/individual-analyst mix, distinct publisher/URL hosts, three-/seven-day recency, and explicit targets, entry and stop-loss. **The checks are correlated, not 15 independent bullish recommendations**, and should never be interpreted as probability of profit, a validation of analyst accuracy, or a buy instruction.
+
+When insufficient, the app clearly shows e.g. **3 / 10 distinct BUY institutions — not qualified** rather than silently assigning a strong-call label. A high numerical evidence score alone does not override this rule.
+
+### Validation
+
+The Android CI now runs `EvidenceGateTest` alongside the existing source deduplication, query expansion, BUY/SELL attribution, and trade-price parsing regressions. Tests cover a genuine 3-of-10 shortfall, 10/12/15 threshold boundaries, repeated republications of one opinion, hostile SELL disagreement and zero-evidence cases.
+
+Because free search providers can rate limit or omit sources, no app can guarantee ten recent genuine endorsements for every stock. **Zero qualifying stocks is a valid outcome.** A strong-evidence badge is research provenance only, not regulated investment advice.
