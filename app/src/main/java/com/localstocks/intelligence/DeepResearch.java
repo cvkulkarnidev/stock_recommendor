@@ -35,28 +35,46 @@ public final class DeepResearch {
         public int skipped=0;
         public final Set<String> observedHosts=new HashSet<>();
     }
+    public interface Progress {
+        void update(int completed,int planned,int successful,int discoveries,int skipped);
+    }
     public static Report run(String symbol,String company){
+        return run(symbol,company,null);
+    }
+    public static Report run(String symbol,String company,Progress listener){
         Report report=new Report();
         List<DeepQueries.Query> queries=DeepQueries.build(symbol,company);
         report.candidateDomains=SourceDirectory.searchable().size();
-        int consecutiveIndexFailures=0;
+        int consecutiveBingFailures=0,consecutiveGoogleFailures=0;
+        int finished=0;
+        final int planned=queries.size();
         for(DeepQueries.Query q:queries){
-            // If the free index is refusing searches, don't hammer it or
-            // silently report skipped requests as completed searches.
-            if(q.provider.equals("BING")&&consecutiveIndexFailures>=4){
-                report.skipped++;continue;
+            if(Thread.currentThread().isInterrupted()){
+                report.skipped+=planned-finished;
+                break;
+            }
+            boolean bing=q.provider.equals("BING");
+            if(bing&&consecutiveBingFailures>=4 || !bing&&consecutiveGoogleFailures>=8){
+                report.skipped++;finished++;
+                if(listener!=null&&finished%5==0)
+                    listener.update(finished,planned,report.succeeded,report.hits.size(),report.skipped);
+                continue;
             }
             report.queries++;
             try{
                 fetch(q,report);
                 report.succeeded++;
-                if(q.provider.equals("GOOGLE"))report.google++;else report.bing++;
-                consecutiveIndexFailures=0;
+                if(bing){report.bing++;consecutiveBingFailures=0;}
+                else{report.google++;consecutiveGoogleFailures=0;}
             }catch(Exception e){
-                if(report.failures.size()<15)
+                if(report.failures.size()<20)
                     report.failures.add(q.channel+"/"+q.provider+": "+e.getClass().getSimpleName());
-                if(q.provider.equals("BING"))consecutiveIndexFailures++;
+                if(bing)consecutiveBingFailures++;
+                else consecutiveGoogleFailures++;
             }
+            finished++;
+            if(listener!=null&&(finished%5==0||finished==planned))
+                listener.update(finished,planned,report.succeeded,report.hits.size(),report.skipped);
         }
         report.observedDomains=report.observedHosts.size();
         return report;
