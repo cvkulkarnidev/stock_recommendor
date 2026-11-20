@@ -51,6 +51,47 @@ public final class DeepQueries {
         add(result,used,"X_INDEX","BING",ticker+" site:twitter.com NSE target stop loss");
         add(result,used,"ANALYSTS","BING",quoted+" swing trade recommendation independent analyst");
         add(result,used,"BROKERAGES","BING",quoted+" \"buy\" \"target\" \"stop loss\" India");
+        // Complementary phrasings: a "maintained overweight" call is just
+        // as important as a headline explicitly saying BUY.
+        String[] ratingTerms={
+            "maintains buy rating target price",
+            "reiterates buy recommendation",
+            "upgrades to buy",
+            "outperform overweight research",
+            "accumulate stock brokerage",
+            "downgrades to sell",
+            "underperform underweight reduce",
+            "target price raised brokerage",
+            "target price cut retains buy",
+            "share price target analyst consensus",
+            "technical breakout entry stop loss",
+            "positional trade recommended entry target",
+            "swing trading call risk reward",
+            "investment recommendation research pdf",
+            "quarterly earnings institutional research",
+            "stock recommendation published report date",
+            "analyst upgrades outlook bullish",
+            "fundamental research report buy call",
+            "intraday positional delivery pick",
+            "latest institutional rating target"
+        };
+        for(String term:ratingTerms){
+            add(result,used,"RESEARCH","GOOGLE",quoted+" "+term+" when:30d");
+        }
+        String[] brokerSearches={
+            "Motilal Oswal","ICICI Securities","Nuvama","Axis Securities",
+            "Elara Securities","HDFC Securities","Kotak Securities","Jefferies",
+            "Nomura","UBS","JPMorgan","CLSA","Morgan Stanley",
+            "Goldman Sachs","Citi","HSBC","Bernstein","Sharekhan",
+            "Anand Rathi","Choice Broking","Emkay Global","JM Financial",
+            "IIFL Securities","Prabhudas Lilladher","Geojit",
+            "Vaishali Parekh","Sumeet Bagadia","Ganesh Dongre",
+            "Shrikant Chouhan","Shiju Koothupalakkal"
+        };
+        for(String broker:brokerSearches){
+            add(result,used,"BROKERAGES","GOOGLE",quoted+" \""+broker+"\" "+
+                "rating target buy sell recommendation when:30d");
+        }
         // Group candidate publishers by category rather than dispatching 100+
         // sequential network calls from the phone. Search-index providers may
         // ignore some OR clauses; actual returned domain counts are audited.
@@ -78,6 +119,9 @@ public final class DeepQueries {
                         ?"buy sell entry target stop loss"
                         :"research stock buy sell target");
                 add(result,used,category.getKey(),"BING",q.toString());
+                // A genuinely independent free discovery path when Bing
+                // rejects site grouping; some providers ignore OR clauses.
+                add(result,used,category.getKey(),"GOOGLE",q.toString()+" when:30d");
             }
         }
         return result;
