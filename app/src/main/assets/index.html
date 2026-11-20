@@ -177,7 +177,7 @@ return '<div class="status visible '+(state.error?"error":"")+'">'+(state.refres
 function deepPanel(){
 return '<section class="detail-section" style="margin-top:13px;background:linear-gradient(135deg,#142b3c,#132039)"><div class="eyebrow">MULTI-PORTAL DEEP RESEARCH</div>'+
 '<div class="section-title" style="margin:8px 0">Search a particular stock</div>'+
-'<div class="small-note" style="margin-bottom:11px">25 expanded searches: brokerage portals, financial news, individual analysts, Reddit and X public indexes. No paid APIs.</div>'+
+'<div class="small-note" style="margin-bottom:11px">Exhaustive multi-pass research: 100+ site targets, rating-synonym searches, named brokers, individual analysts, Reddit/X public indexes. Longer searches show live progress; no paid APIs.</div>'+
 '<div class="search-wrap" style="margin:0 0 10px"><input id="deepInput" style="padding-left:15px" placeholder="NSE symbol or known company" oninput="state.deepQuery=this.value" value="'+esc(state.deepQuery)+'"></div>'+
 '<button class="primary" style="width:100%" '+(state.refreshing?'disabled':'')+' onclick="deepSearchNow()">⌕ &nbsp; Deep Search across portals</button>'+
 (state.deepReport?'<p class="small-note" style="margin-top:12px">'+esc(state.deepReport)+'</p>':'')+
@@ -220,9 +220,9 @@ return '<div style="margin-bottom:12px"><div class="conf-label" style="margin-bo
 function listSection(){
 var stocks=currentStocks(), filters=["All","READY","BUY","SELL","MIXED","WATCH"];
 return '<div class="title-row"><div><div class="section-title">'+(state.tab==="Saved"?"Saved watchlist":"Discovered stocks")+'</div>'+
-'<div class="section-caption">Ranked using dated research, source trust and independent agreement</div></div><div class="count">'+stocks.length+' results</div></div>'+
+'<div class="section-caption">Ranked by source-linked opinions, with a separate 10–15 institution evidence gate</div></div><div class="count">'+stocks.length+' results</div></div>'+
 '<div class="search-wrap"><svg viewBox="0 0 24 24"><circle cx="10.7" cy="10.7" r="6.3"/><path d="m16 16 5 5"/></svg><input id="stockSearch" placeholder="Search symbol or company" oninput="queryTo(this.value)" value="'+esc(state.query)+'"></div>'+
-'<div class="chips">'+filters.map(function(f){return '<button class="chip '+(f===state.filter?'active':'')+'" onclick="filterTo(\''+f+'\')">'+(f==="All"?"All signals":f==="READY"?"10+ strong":" "+f)+"</button>";}).join("")+'</div>'+gateChooser()+timeFilters()+
+'<div class="chips">'+filters.map(function(f){return '<button class="chip '+(f===state.filter?'active':'')+'" onclick="filterTo(\''+f+'\')">'+(f==="All"?"All signals":f==="READY"?"Qualified only":" "+f)+"</button>";}).join("")+'</div>'+gateChooser()+timeFilters()+
 '<div id="stockList">'+listContent(stocks)+'</div>';
 }
 function listContent(stocks){
